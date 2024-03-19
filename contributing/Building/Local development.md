@@ -18,6 +18,13 @@ debugging using the development console (`Ctrl+Shift+i` on Windows or `Cmd+Shift
 
 Then:
 
+set env `OBSIDIAN_PLUGIN_ROOT` to the path of the `.obsidian/plugins` folder in your local test vault.
+in windows powershell:
+
+```powershell
+$env:OBSIDIAN_PLUGIN_ROOT = "C:\Users..."
+```
+
 - **Either** manually copy the `main.js` file to local test vault's `.obsidian/plugins/obsidian-tasks` folder,
   - There is also a script `scripts/Test-TasksInLocalObsidian.sh` which copies in all 3 of the plugin's files.
   - With both of these approaches, you must remember to repeat the copy step after every build.
