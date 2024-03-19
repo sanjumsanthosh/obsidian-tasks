@@ -1,5 +1,6 @@
 import type { EventRef, MarkdownPostProcessorContext } from 'obsidian';
 import { App, Keymap, MarkdownRenderChild, MarkdownRenderer, TFile } from 'obsidian';
+import { getSettings } from 'Config/Settings';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { GlobalQuery } from '../Config/GlobalQuery';
 import { QueryLayout } from '../Layout/QueryLayout';
@@ -415,7 +416,8 @@ class QueryRenderChild extends MarkdownRenderChild {
     }
 
     private addPostponeButton(listItem: HTMLElement, task: Task, shortMode: boolean) {
-        const amount = 1;
+        const { defaultDaysToSkipDue } = getSettings();
+        const amount = defaultDaysToSkipDue;
         const timeUnit = 'day';
         const buttonTooltipText = postponeButtonTitle(task, amount, timeUnit);
 

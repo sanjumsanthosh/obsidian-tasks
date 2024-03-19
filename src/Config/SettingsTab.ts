@@ -308,6 +308,21 @@ export class SettingsTab extends PluginSettingTab {
             });
 
         new Setting(containerEl)
+            .setName('Default number of days to skip Due date')
+            .setDesc('How many days should be added to the current date when a new task is created with a Due date.')
+            .addSlider((slider) => {
+                const settings = getSettings();
+                slider
+                    .setLimits(0, 14, 1)
+                    .setValue(settings.defaultDaysToSkipDue)
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        updateSettings({ defaultDaysToSkipDue: value });
+                        await this.plugin.saveSettings();
+                    });
+            });
+
+        new Setting(containerEl)
             .setName('Maximum number of auto-suggestions to show')
             .setDesc(
                 'How many suggestions should be shown when an auto-suggest menu pops up (including the "⏎" option).',

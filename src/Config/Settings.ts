@@ -70,6 +70,7 @@ export interface Settings {
     autoSuggestInEditor: boolean;
     autoSuggestMinMatch: number;
     autoSuggestMaxItems: number;
+    defaultDaysToSkipDue: number;
     provideAccessKeys: boolean;
     useFilenameAsScheduledDate: boolean;
     filenameAsDateFolders: string[];
@@ -103,6 +104,7 @@ const defaultSettings: Settings = {
     autoSuggestInEditor: true,
     autoSuggestMinMatch: 0,
     autoSuggestMaxItems: 6,
+    defaultDaysToSkipDue: 1,
     provideAccessKeys: true,
     useFilenameAsScheduledDate: false,
     filenameAsDateFolders: [],

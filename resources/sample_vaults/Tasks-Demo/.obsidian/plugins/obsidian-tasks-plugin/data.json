@@ -9,6 +9,7 @@
   "autoSuggestInEditor": true,
   "autoSuggestMinMatch": 0,
   "autoSuggestMaxItems": 6,
+  "defaultDaysToSkipDue": 1,
   "provideAccessKeys": true,
   "useFilenameAsScheduledDate": true,
   "filenameAsDateFolders": [],
