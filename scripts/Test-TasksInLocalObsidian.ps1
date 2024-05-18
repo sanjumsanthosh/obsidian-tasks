@@ -22,7 +22,7 @@ Write-Host "Repo root: $repoRoot"
 
 yarn run build:dev
 
-if (!$?) {
+if ($?) {
     Write-Output 'Build successful'
 
     $filesToLink = @('main.js', 'styles.css', 'manifest.json')
