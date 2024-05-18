@@ -3,6 +3,7 @@
  */
 import moment from 'moment';
 import { Query } from '../../src/Query/Query';
+import { TasksFile } from '../../src/Scripting/TasksFile';
 import { Status } from '../../src/Statuses/Status';
 import { Task } from '../../src/Task/Task';
 import { TaskLocation } from '../../src/Task/TaskLocation';
@@ -42,7 +43,10 @@ describe('Query parsing', () => {
     // In alphabetical order, please
     const filters: ReadonlyArray<string> = [
         // NEW_QUERY_INSTRUCTION_EDIT_REQUIRED
+        '"due this week" AND "description includes Hello World"',
         '(due this week) AND (description includes Hello World)',
+        '[due this week] AND [description includes Hello World]',
+        '{due this week} AND {description includes Hello World}',
         'cancelled after 2021-12-27',
         'cancelled before 2021-12-27',
         'cancelled date is invalid',
@@ -531,7 +535,7 @@ describe('Query parsing', () => {
 
     describe('should include instruction in parsing error messages', () => {
         function getQueryError(source: string) {
-            return new Query(source).error;
+            return new Query(source, 'Example Path.md').error;
         }
 
         it('for invalid regular expression filter', () => {
@@ -605,6 +609,73 @@ Problem line: "${source}"`);
             expect(getQueryError(sourceUpperCase)).toEqual(`do not understand query
 Problem line: "${sourceUpperCase}"`);
         });
+
+        it('for instruction with continuation characters and placeholders', () => {
+            const source = `spaghetti includes \\
+    {{query.file.path}}`;
+
+            expect(getQueryError(source)).toEqual(`do not understand query
+Problem statement:
+    spaghetti includes \\
+        {{query.file.path}}
+     =>
+    spaghetti includes {{query.file.path}} =>
+    spaghetti includes Example Path.md
+`);
+        });
+
+        it('for boolean with filter-by-function closing ) swallowed by Boolean parsing', () => {
+            const source = "( filter by function task.originalMarkdown.includes('hello') )";
+            expect(getQueryError(source)).toMatchInlineSnapshot(`
+                "Could not interpret the following instruction as a Boolean combination:
+                    ( filter by function task.originalMarkdown.includes('hello') )
+
+                The error message is:
+                    malformed boolean query -- Invalid token (check the documentation for guidelines)
+
+                The instruction was converted to the following simplified line:
+                    ( f1) )
+
+                Where the sub-expressions in the simplified line are:
+                    'f1': 'filter by function task.originalMarkdown.includes('hello''
+                        => ERROR:
+                           Error: Failed parsing expression "task.originalMarkdown.includes('hello'".
+                           The error message was:
+                           "SyntaxError: missing ) after argument list"
+
+                For help, see:
+                    https://publish.obsidian.md/tasks/Queries/Combining+Filters
+
+                Problem line: "( filter by function task.originalMarkdown.includes('hello') )""
+            `);
+        });
+
+        it('for boolean with unknown instruction', () => {
+            const source = '( filename includesx {{query.file.filenameWithoutExtension}} )';
+            expect(getQueryError(source)).toMatchInlineSnapshot(`
+                "Could not interpret the following instruction as a Boolean combination:
+                    ( filename includesx Example Path )
+
+                The error message is:
+                    couldn't parse sub-expression 'filename includesx Example Path'
+
+                The instruction was converted to the following simplified line:
+                    ( f1 )
+
+                Where the sub-expressions in the simplified line are:
+                    'f1': 'filename includesx Example Path'
+                        => ERROR:
+                           do not understand query
+
+                For help, see:
+                    https://publish.obsidian.md/tasks/Queries/Combining+Filters
+
+                Problem statement:
+                    ( filename includesx {{query.file.filenameWithoutExtension}} ) =>
+                    ( filename includesx Example Path )
+                "
+            `);
+        });
     });
 
     describe('parsing placeholders', () => {
@@ -672,7 +743,7 @@ describe('Query', () => {
                 new Task({
                     status: Status.TODO,
                     description: 'description',
-                    taskLocation: TaskLocation.fromUnknownPosition('Ab/C D'),
+                    taskLocation: TaskLocation.fromUnknownPosition(new TasksFile('Ab/C D')),
                     indentation: '',
                     listMarker: '-',
                     priority: Priority.None,
@@ -693,7 +764,7 @@ describe('Query', () => {
                 new Task({
                     status: Status.TODO,
                     description: 'description',
-                    taskLocation: TaskLocation.fromUnknownPosition('FF/C D'),
+                    taskLocation: TaskLocation.fromUnknownPosition(new TasksFile('FF/C D')),
                     indentation: '',
                     listMarker: '-',
                     priority: Priority.None,
@@ -997,7 +1068,7 @@ describe('Query', () => {
             [
                 'simple OR',
                 {
-                    filters: ['"has due date" OR (description includes special)'],
+                    filters: ['(has due date) OR (description includes special)'],
                     tasks: [
                         '- [ ] task 1',
                         '- [ ] task 2 🛫 2022-04-20 ⏳ 2022-04-20 📅 2022-04-20',
@@ -1014,7 +1085,7 @@ describe('Query', () => {
             [
                 'simple AND',
                 {
-                    filters: ['(has start date) AND "description includes some"'],
+                    filters: ['(has start date) AND (description includes some)'],
                     tasks: [
                         '- [ ] task 1',
                         '- [ ] some task 2 🛫 2022-04-20 ⏳ 2022-04-20 📅 2022-04-20',
@@ -1459,6 +1530,23 @@ describe('Query', () => {
     });
 
     describe('line continuations', () => {
+        it('should save the source correctly in a Statement object', () => {
+            const source = String.raw`(path includes A) OR \
+                (path includes {{query.file.path}})`;
+            const query = new Query(source, 'Test.md');
+
+            expect(query.error).toBeUndefined();
+            const filter = query.filters[0];
+            expect(filter.statement.rawInstruction).toEqual(source);
+            expect(filter.statement.anyContinuationLinesRemoved).toEqual(
+                '(path includes A) OR (path includes {{query.file.path}})',
+            );
+            expect(filter.statement.anyPlaceholdersExpanded).toEqual('(path includes A) OR (path includes Test.md)');
+
+            // Self-consistency check:
+            expect(filter.statement.anyPlaceholdersExpanded).toEqual(filter.instruction);
+        });
+
         it('should work in group by functions', () => {
             const source = String.raw`group by function \
                 const date = task.due.moment; \
@@ -1471,6 +1559,7 @@ describe('Query', () => {
             const query = new Query(source);
             expect(query.error).toBeUndefined();
         });
+
         it('should be explained correctly in boolean queries', () => {
             const source = String.raw`explain
 (description includes line 1) OR        \
@@ -1479,7 +1568,11 @@ with \ backslash)`;
             const query = new Query(source);
             const queryUpperCase = new Query(source);
             expect(query.explainQuery()).toMatchInlineSnapshot(`
-                "(description includes line 1) OR (description includes line 1 continued with \\ backslash) =>
+                "(description includes line 1) OR        \\
+                  (description includes line 1 continued\\
+                with \\ backslash)
+                 =>
+                (description includes line 1) OR (description includes line 1 continued with \\ backslash) =>
                   OR (At least one of):
                     description includes line 1
                     description includes line 1 continued with \\ backslash
@@ -1490,7 +1583,11 @@ with \ backslash)`;
                 "
             `);
             expect(queryUpperCase.explainQuery()).toMatchInlineSnapshot(`
-                "(description includes line 1) OR (description includes line 1 continued with \\ backslash) =>
+                "(description includes line 1) OR        \\
+                  (description includes line 1 continued\\
+                with \\ backslash)
+                 =>
+                (description includes line 1) OR (description includes line 1 continued with \\ backslash) =>
                   OR (At least one of):
                     description includes line 1
                     description includes line 1 continued with \\ backslash

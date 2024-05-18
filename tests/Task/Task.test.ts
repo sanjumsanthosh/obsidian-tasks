@@ -3,6 +3,7 @@
  */
 import moment from 'moment';
 import { verifyAll } from 'approvals/lib/Providers/Jest/JestApprovals';
+import { TasksFile } from '../../src/Scripting/TasksFile';
 import { Status } from '../../src/Statuses/Status';
 import { Task } from '../../src/Task/Task';
 import { resetSettings, updateSettings } from '../../src/Config/Settings';
@@ -46,6 +47,8 @@ describe('parsing', () => {
         expect(task!.doneDate).toEqualMoment(moment('2021-06-20'));
         expect(task!.originalMarkdown).toStrictEqual(line);
         expect(task!.lineNumber).toEqual(0);
+        expect(task.parent).toBeNull();
+        expect(task.children).toEqual([]);
     });
 
     it('parses a task from a line starting with asterisk', () => {
@@ -422,7 +425,7 @@ describe('parsing tags', () => {
             // Act
             const task = Task.fromLine({
                 line: markdownTask,
-                taskLocation: TaskLocation.fromUnknownPosition('file.md'),
+                taskLocation: TaskLocation.fromUnknownPosition(new TasksFile('file.md')),
                 fallbackDate: null,
             });
 

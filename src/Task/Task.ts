@@ -6,11 +6,12 @@ import type { Status } from '../Statuses/Status';
 import { compareByDate } from '../lib/DateTools';
 import { TasksDate } from '../Scripting/TasksDate';
 import { StatusType } from '../Statuses/StatusConfiguration';
-import { TasksFile } from '../Scripting/TasksFile';
+import type { TasksFile } from '../Scripting/TasksFile';
 import { PriorityTools } from '../lib/PriorityTools';
 import { logging } from '../lib/logging';
 import { logEndOfTaskEdit, logStartOfTaskEdit } from '../lib/LogTasksHelper';
 import { DateFallback } from './DateFallback';
+import { ListItem } from './ListItem';
 import { Urgency } from './Urgency';
 import type { Recurrence } from './Recurrence';
 import type { TaskLocation } from './TaskLocation';
@@ -37,7 +38,7 @@ interface TaskComponents {
  * @export
  * @class Task
  */
-export class Task {
+export class Task extends ListItem {
     // NEW_TASK_FIELD_EDIT_REQUIRED
     public readonly status: Status;
     public readonly description: string;
@@ -119,6 +120,7 @@ export class Task {
         originalMarkdown: string;
         scheduledDateIsInferred: boolean;
     }) {
+        super(null, []);
         // NEW_TASK_FIELD_EDIT_REQUIRED
         this.status = status;
         this.description = description;
@@ -728,7 +730,7 @@ export class Task {
     }
 
     public get file(): TasksFile {
-        return new TasksFile(this.path);
+        return this.taskLocation.tasksFile;
     }
 
     /**
