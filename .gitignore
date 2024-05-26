@@ -39,3 +39,4 @@ yarn-error.log
 
 # Backup files.
 *.bak
+bun.lockb
