@@ -3,6 +3,8 @@
 | due:: due date | due::  |
 | start:: start date | start::  |
 | scheduled:: scheduled date | scheduled::  |
+| id:: id | id:: |
+| dependsOn:: depends on id | dependsOn:: |
 | priority:: high priority | priority:: high]  |
 | priority:: medium priority | priority:: medium]  |
 | priority:: low priority | priority:: low]  |
@@ -59,3 +61,4 @@
 | next week (2022-07-18) | start:: 2022-07-18]  |
 | next month (2022-08-11) | start:: 2022-08-11]  |
 | next year (2023-07-11) | start:: 2023-07-11]  |
+| generate unique id | id:: ****** |

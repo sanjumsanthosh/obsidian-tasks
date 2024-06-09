@@ -1,9 +1,19 @@
 export class ListItem {
-    public readonly parent: ListItem | null = null;
-    public readonly children: ListItem[];
+    /** The original line read from file.
+     *
+     * Will be empty if Task was created programmatically
+     * (for example, by Create or Edit Task, or in tests, including via {@link TaskBuilder}). */
+    public readonly originalMarkdown: string;
 
-    constructor(parent: ListItem | null, children: ListItem[]) {
+    public readonly parent: ListItem | null = null;
+    public readonly children: ListItem[] = [];
+
+    constructor(originalMarkdown: string, parent: ListItem | null) {
+        this.originalMarkdown = originalMarkdown;
         this.parent = parent;
-        this.children = children;
+
+        if (parent !== null) {
+            parent.children.push(this);
+        }
     }
 }
