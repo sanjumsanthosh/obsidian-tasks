@@ -40,3 +40,4 @@ yarn-error.log
 # Backup files.
 *.bak
 bun.lockb
+local_sync.ps1
