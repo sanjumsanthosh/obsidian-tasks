@@ -103,7 +103,7 @@ const defaultSettings: Settings = {
     setCancelledDate: true,
     autoSuggestInEditor: true,
     autoSuggestMinMatch: 0,
-    autoSuggestMaxItems: 6,
+    autoSuggestMaxItems: 20,
     defaultDaysToSkipDue: 1,
     provideAccessKeys: true,
     useFilenameAsScheduledDate: false,

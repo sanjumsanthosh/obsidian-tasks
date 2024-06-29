@@ -24,6 +24,11 @@ import { inheritance_task_listitem_mixed_grandchildren } from './__test_data__/i
 import { inheritance_task_listitem_task } from './__test_data__/inheritance_task_listitem_task';
 import { inheritance_task_mixed_children } from './__test_data__/inheritance_task_mixed_children';
 import { one_task } from './__test_data__/one_task';
+import { callouts_nested_issue_2890_labelled } from './__test_data__/callouts_nested_issue_2890_labelled';
+import { callout } from './__test_data__/callout';
+import { callout_labelled } from './__test_data__/callout_labelled';
+import { callout_custom } from './__test_data__/callout_custom';
+import { callouts_nested_issue_2890_unlabelled } from './__test_data__/callouts_nested_issue_2890_unlabelled';
 
 window.moment = moment;
 
@@ -32,6 +37,9 @@ function errorReporter() {
 }
 
 /* Test creation sequence:
+
+If using this on an Obsidian version newer than the one in saved tests/Obsidian/__test_data__/*.ts
+go to Settings → Files and links → Advanced → Rebuild vault cache.
 
 - Create a sample markdown file in Tasks demo vault (root/Test Data/) with the simplest content
 to represent your test case. Choose a meaningful file name in snake case. See example in 'Test Data/one_task.md'.
@@ -56,6 +64,7 @@ created in the previous step.
 
 - Remember to commit the markdown file in the demo vault and the file with the simulated data.
 
+TODO: Make the order of values in the generated code stable.
  */
 
 interface SimulatedFile {
@@ -469,5 +478,130 @@ describe('cache', () => {
                     - grandchild list item 2 : ListItem
             "
         `);
+    });
+
+    it('callout', () => {
+        const tasks = readTasksFromSimulatedFile(callout);
+        expect(callout.fileContents).toMatchInlineSnapshot(`
+            "# callout
+
+            > [!todo]
+            > - [ ] #task Task in 'callout'
+            >     - [ ] #task Task indented in 'callout'
+
+            \`\`\`tasks
+            not done
+            path includes {{query.file.path}}
+            \`\`\`
+            "
+        `);
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "> - [ ] #task Task in 'callout' : Task
+                >     - [ ] #task Task indented in 'callout' : Task
+            "
+        `);
+        expect(tasks.length).toEqual(2);
+    });
+
+    it('callout_custom', () => {
+        const tasks = readTasksFromSimulatedFile(callout_custom);
+        expect(callout_custom.fileContents).toMatchInlineSnapshot(`
+            "# callout_custom
+
+            > [!callout_custom]
+            > - [ ] #task Task in 'callout_custom'
+            >     - [ ] #task Task indented in 'callout_custom'
+
+            \`\`\`tasks
+            not done
+            path includes {{query.file.path}}
+            \`\`\`
+            "
+        `);
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "> - [ ] #task Task in 'callout_custom' : Task
+                >     - [ ] #task Task indented in 'callout_custom' : Task
+            "
+        `);
+        expect(tasks.length).toEqual(2);
+    });
+
+    it('callout_labelled', () => {
+        const tasks = readTasksFromSimulatedFile(callout_labelled);
+        expect(callout_labelled.fileContents).toMatchInlineSnapshot(`
+            "# callout_labelled
+
+            > [!todo] callout_labelled
+            > - [ ] #task Task in 'callout_labelled'
+            >     - [ ] #task Task indented in 'callout_labelled'
+
+            \`\`\`tasks
+            not done
+            path includes {{query.file.path}}
+            \`\`\`
+            "
+        `);
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "> - [ ] #task Task in 'callout_labelled' : Task
+                >     - [ ] #task Task indented in 'callout_labelled' : Task
+            "
+        `);
+        expect(tasks.length).toEqual(2);
+    });
+
+    it('callouts_nested_issue_2890_unlabelled', () => {
+        const tasks = readTasksFromSimulatedFile(callouts_nested_issue_2890_unlabelled);
+        expect(callouts_nested_issue_2890_unlabelled.fileContents).toMatchInlineSnapshot(`
+            " > [!Calendar]+
+             >> [!Check]+
+             >>> [!Attention]+
+             >>> Some stuff goes here
+             >>> - [ ] #task Correction1
+             >>> - [ ] #task Correction2
+             >>> - [ ] #task Correction3
+             >>> - [ ] #task Correction4
+
+            \`\`\`tasks
+            not done
+            path includes {{query.file.path}}
+            \`\`\`
+            "
+        `);
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            ">>> - [ ] #task Correction1 : Task
+            >>> - [ ] #task Correction2 : Task
+            >>> - [ ] #task Correction3 : Task
+            >>> - [ ] #task Correction4 : Task
+            "
+        `);
+        expect(tasks.length).toEqual(4);
+    });
+
+    it('callouts_nested_issue_2890_labelled', () => {
+        const tasks = readTasksFromSimulatedFile(callouts_nested_issue_2890_labelled);
+        expect(callouts_nested_issue_2890_labelled.fileContents).toMatchInlineSnapshot(`
+            " > [!Calendar]+ MONTH
+             >> [!Check]+ GROUP
+             >>> [!Attention]+ Correction TITLE
+             >>> Some stuff goes here
+             >>> - [ ] #task Correction1
+             >>> - [ ] #task Correction2
+             >>> - [ ] #task Correction3
+             >>> - [ ] #task Correction4
+
+            \`\`\`tasks
+            not done
+            path includes {{query.file.path}}
+            \`\`\`
+            "
+        `);
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            ">>> - [ ] #task Correction1 : Task
+            >>> - [ ] #task Correction2 : Task
+            >>> - [ ] #task Correction3 : Task
+            >>> - [ ] #task Correction4 : Task
+            "
+        `);
+        expect(tasks.length).toEqual(4);
     });
 });
