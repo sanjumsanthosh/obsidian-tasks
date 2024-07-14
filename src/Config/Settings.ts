@@ -73,6 +73,7 @@ export interface Settings {
     defaultDaysToSkipDue: number;
     provideAccessKeys: boolean;
     useFilenameAsScheduledDate: boolean;
+    filenameAsScheduledDateFormat: string;
     filenameAsDateFolders: string[];
     recurrenceOnNextLine: boolean;
 
@@ -107,6 +108,7 @@ const defaultSettings: Settings = {
     defaultDaysToSkipDue: 1,
     provideAccessKeys: true,
     useFilenameAsScheduledDate: false,
+    filenameAsScheduledDateFormat: '',
     filenameAsDateFolders: [],
     recurrenceOnNextLine: false,
     statusSettings: new StatusSettings(),

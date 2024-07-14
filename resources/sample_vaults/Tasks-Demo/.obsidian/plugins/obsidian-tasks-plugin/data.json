@@ -12,6 +12,7 @@
   "defaultDaysToSkipDue": 1,
   "provideAccessKeys": true,
   "useFilenameAsScheduledDate": true,
+  "filenameAsScheduledDateFormat": "MMM DD, YYYY",
   "filenameAsDateFolders": [],
   "recurrenceOnNextLine": false,
   "statusSettings": {
@@ -58,7 +59,8 @@
   },
   "debugSettings": {
     "ignoreSortInstructions": false,
-    "showTaskHiddenData": false
+    "showTaskHiddenData": false,
+    "recordTimings": false
   },
   "loggingOptions": {
     "minLevels": {
