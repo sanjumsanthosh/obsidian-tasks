@@ -2,12 +2,15 @@
 import type { Moment } from 'moment';
 import { TasksFile } from '../../src/Scripting/TasksFile';
 import { Status } from '../../src/Statuses/Status';
+import { OnCompletion } from '../../src/Task/OnCompletion';
+import { Occurrence } from '../../src/Task/Occurrence';
 import { Task } from '../../src/Task/Task';
 import { Recurrence } from '../../src/Task/Recurrence';
 import { DateParser } from '../../src/Query/DateParser';
 import { StatusConfiguration, StatusType } from '../../src/Statuses/StatusConfiguration';
 import { TaskLocation } from '../../src/Task/TaskLocation';
 import { Priority } from '../../src/Task/Priority';
+import { setCurrentCacheFile } from '../__mocks__/obsidian';
 
 /**
  * A fluent class for creating tasks for tests.
@@ -45,11 +48,13 @@ export class TaskBuilder {
     private _cancelledDate: Moment | null = null;
 
     private _recurrence: Recurrence | null = null;
+    private _onCompletion: OnCompletion = OnCompletion.Ignore;
     private _blockLink: string = '';
 
     private _scheduledDateIsInferred: boolean = false;
     private _id: string = '';
     private _dependsOn: string[] = [];
+    private _mockData: any = undefined;
 
     /**
      * Build a Task
@@ -68,12 +73,16 @@ export class TaskBuilder {
         if (this._tags.length > 0) {
             description += ' ' + this._tags.join(' ');
         }
+        if (this._mockData !== undefined) {
+            setCurrentCacheFile(this._mockData);
+        }
+        const cachedMetadata = this._mockData?.cachedMetadata ?? {};
         const task = new Task({
             // NEW_TASK_FIELD_EDIT_REQUIRED
             status: this._status,
             description: description,
             taskLocation: new TaskLocation(
-                new TasksFile(this._path),
+                new TasksFile(this._path, cachedMetadata),
                 this._lineNumber,
                 this._sectionStart,
                 this._sectionIndex,
@@ -89,6 +98,7 @@ export class TaskBuilder {
             doneDate: this._doneDate,
             cancelledDate: this._cancelledDate,
             recurrence: this._recurrence,
+            onCompletion: this._onCompletion,
             dependsOn: this._dependsOn,
             id: this._id,
             blockLink: this._blockLink,
@@ -119,6 +129,7 @@ export class TaskBuilder {
             .dueDate('2023-07-04')
             .doneDate('2023-07-05')
             .cancelledDate('2023-07-06')
+            .onCompletion('delete')
             .dependsOn(['123456', 'abc123'])
             .id('abcdef')
             .blockLink(' ^dcf64c')
@@ -132,9 +143,11 @@ export class TaskBuilder {
         taskBuilder.recurrence(
             Recurrence.fromText({
                 recurrenceRuleText: 'every day when done',
-                startDate: taskBuilder._startDate,
-                scheduledDate: taskBuilder._scheduledDate,
-                dueDate: taskBuilder._dueDate,
+                occurrence: new Occurrence({
+                    startDate: taskBuilder._startDate,
+                    scheduledDate: taskBuilder._scheduledDate,
+                    dueDate: taskBuilder._dueDate,
+                }),
             }),
         );
 
@@ -185,6 +198,18 @@ export class TaskBuilder {
      */
     public path(path: string): TaskBuilder {
         this._path = path;
+        return this;
+    }
+
+    /**
+     * See {@link example_kanban} and other files in the same directory, for available sample mock data.
+     *
+     * @example
+     *      const builder = new TaskBuilder().mockData(example_kanban);
+     * @param mockData
+     */
+    public mockData(mockData: any) {
+        this._mockData = mockData;
         return this;
     }
 
@@ -264,6 +289,15 @@ export class TaskBuilder {
      */
     public recurrence(recurrence: Recurrence | null): TaskBuilder {
         this._recurrence = recurrence;
+        return this;
+    }
+
+    public onCompletion(onCompletion: string): TaskBuilder {
+        if (onCompletion === 'delete') {
+            this._onCompletion = OnCompletion.Delete;
+        } else {
+            this._onCompletion = OnCompletion.Ignore;
+        }
         return this;
     }
 

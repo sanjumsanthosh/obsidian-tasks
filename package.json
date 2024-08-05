@@ -1,6 +1,6 @@
 {
   "name": "obsidian-tasks",
-  "version": "7.6.1",
+  "version": "7.7.0",
   "description": "Task management for the Obsidian knowledge base",
   "main": "main.js",
   "engines": {
@@ -26,7 +26,7 @@
     "task-manager",
     "task-management"
   ],
-  "author": "Martin Schenck and Clare Macrae",
+  "author": "Clare Macrae and Ilyas Landikov (created by Martin Schenck)",
   "license": "MIT",
   "devDependencies": {
     "@codemirror/view": "^6.2.0",

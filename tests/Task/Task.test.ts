@@ -19,6 +19,8 @@ import { Priority } from '../../src/Task/Priority';
 import { SampleTasks } from '../TestingTools/SampleTasks';
 import { booleanToEmoji } from '../TestingTools/FilterTestHelpers';
 import type { TasksDate } from '../../src/Scripting/TasksDate';
+import { example_kanban } from '../Obsidian/__test_data__/example_kanban';
+import { jason_properties } from '../Obsidian/__test_data__/jason_properties';
 
 window.moment = moment;
 
@@ -1569,6 +1571,14 @@ describe('identicalTo', () => {
         expect(lhs).not.toBeIdenticalTo(new TaskBuilder().path('different text.md'));
     });
 
+    it('should check frontmatter/properties', () => {
+        const lhs = new TaskBuilder().mockData(example_kanban);
+        expect(lhs).toBeIdenticalTo(new TaskBuilder().mockData(example_kanban));
+
+        expect(lhs).not.toBeIdenticalTo(new TaskBuilder().mockData({}));
+        expect(lhs).not.toBeIdenticalTo(new TaskBuilder().mockData(jason_properties));
+    });
+
     it('should check indentation', () => {
         const lhs = new TaskBuilder().indentation('');
         expect(lhs).toBeIdenticalTo(new TaskBuilder().indentation(''));
@@ -1692,6 +1702,12 @@ describe('identicalTo', () => {
         const lhs = new TaskBuilder().dependsOn([]);
         expect(lhs).toBeIdenticalTo(new TaskBuilder().dependsOn([]));
         expect(lhs).not.toBeIdenticalTo(new TaskBuilder().dependsOn(['12345']));
+    });
+
+    it('should check onCompletion', () => {
+        const lhs = new TaskBuilder().onCompletion('');
+        expect(lhs).toBeIdenticalTo(new TaskBuilder().onCompletion(''));
+        expect(lhs).not.toBeIdenticalTo(new TaskBuilder().onCompletion('delete'));
     });
 
     it('should correctly compare a task with status read from user settings', () => {

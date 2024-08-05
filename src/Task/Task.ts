@@ -12,11 +12,13 @@ import { logging } from '../lib/logging';
 import { logEndOfTaskEdit, logStartOfTaskEdit } from '../lib/LogTasksHelper';
 import { DateFallback } from './DateFallback';
 import { ListItem } from './ListItem';
+import type { Occurrence } from './Occurrence';
 import { Urgency } from './Urgency';
 import type { Recurrence } from './Recurrence';
 import type { TaskLocation } from './TaskLocation';
 import type { Priority } from './Priority';
 import { TaskRegularExpressions } from './TaskRegularExpressions';
+import { OnCompletion, handleOnCompletion } from './OnCompletion';
 
 /**
  * Storage for the task line, broken down in to sections.
@@ -59,6 +61,7 @@ export class Task extends ListItem {
     public readonly cancelledDate: Moment | null;
 
     public readonly recurrence: Recurrence | null;
+    public readonly onCompletion: OnCompletion;
 
     public readonly dependsOn: string[];
     public readonly id: string;
@@ -86,6 +89,7 @@ export class Task extends ListItem {
         doneDate,
         cancelledDate,
         recurrence,
+        onCompletion,
         dependsOn,
         id,
         blockLink,
@@ -108,6 +112,7 @@ export class Task extends ListItem {
         doneDate: moment.Moment | null;
         cancelledDate: moment.Moment | null;
         recurrence: Recurrence | null;
+        onCompletion: OnCompletion;
         dependsOn: string[] | [];
         id: string;
         blockLink: string;
@@ -136,6 +141,7 @@ export class Task extends ListItem {
         this.cancelledDate = cancelledDate;
 
         this.recurrence = recurrence;
+        this.onCompletion = onCompletion;
 
         this.dependsOn = dependsOn;
         this.id = id;
@@ -360,17 +366,6 @@ export class Task extends ListItem {
             today,
         );
 
-        let nextOccurrence: {
-            startDate: Moment | null;
-            scheduledDate: Moment | null;
-            dueDate: Moment | null;
-        } | null = null;
-        if (newStatus.isCompleted()) {
-            if (!this.status.isCompleted() && this.recurrence !== null) {
-                nextOccurrence = this.recurrence.next(today);
-            }
-        }
-
         const toggledTask = new Task({
             ...this,
             status: newStatus,
@@ -378,17 +373,23 @@ export class Task extends ListItem {
             cancelledDate: newCancelledDate,
         });
 
-        const newTasks: Task[] = [];
+        const newStatusIsNotDone = !newStatus.isCompleted();
+        const oldStatusWasDone = this.status.isCompleted();
+        const noRecurrenceRule = this.recurrence === null;
 
-        if (nextOccurrence !== null) {
-            const nextTask = this.createNextOccurrence(newStatus, nextOccurrence);
-            newTasks.push(nextTask);
+        const noNewRecurrence = newStatusIsNotDone || oldStatusWasDone || noRecurrenceRule;
+        if (noNewRecurrence) {
+            return [toggledTask];
         }
 
-        // Write next occurrence before previous occurrence.
-        newTasks.push(toggledTask);
+        const nextOccurrence = this.recurrence.next(today);
+        if (nextOccurrence === null) {
+            return [toggledTask];
+        }
 
-        return newTasks;
+        const nextTask = this.createNextOccurrence(newStatus, nextOccurrence);
+        // Write next occurrence before previous occurrence.
+        return [nextTask, toggledTask];
     }
 
     /**
@@ -419,14 +420,7 @@ export class Task extends ListItem {
         return newDate;
     }
 
-    private createNextOccurrence(
-        newStatus: Status,
-        nextOccurrence: {
-            startDate: moment.Moment | null;
-            scheduledDate: moment.Moment | null;
-            dueDate: moment.Moment | null;
-        },
-    ) {
+    private createNextOccurrence(newStatus: Status, nextOccurrence: Occurrence) {
         const { setCreatedDate } = getSettings();
         let createdDate: moment.Moment | null = null;
         if (setCreatedDate) {
@@ -493,8 +487,9 @@ export class Task extends ListItem {
     }
 
     private putRecurrenceInUsersOrder(newTasks: Task[]) {
+        const potentiallyPrunedTasks = handleOnCompletion(this, newTasks);
         const { recurrenceOnNextLine } = getSettings();
-        return recurrenceOnNextLine ? newTasks.reverse() : newTasks;
+        return recurrenceOnNextLine ? potentiallyPrunedTasks.reverse() : potentiallyPrunedTasks;
     }
 
     /**
@@ -844,6 +839,7 @@ export class Task extends ListItem {
             'scheduledDateIsInferred',
             'id',
             'dependsOn',
+            'onCompletion',
         ];
         for (const el of args) {
             if (this[el]?.toString() !== other[el]?.toString()) return false;
@@ -875,17 +871,25 @@ export class Task extends ListItem {
                 return false;
             }
         }
+        if (!this.recurrenceIdenticalTo(other)) {
+            return false;
+        }
 
+        return this.file.rawFrontmatterIdenticalTo(other.file);
+    }
+
+    private recurrenceIdenticalTo(other: Task) {
         const recurrence1 = this.recurrence;
         const recurrence2 = other.recurrence;
         if (recurrence1 === null && recurrence2 !== null) {
             return false;
-        } else if (recurrence1 !== null && recurrence2 === null) {
-            return false;
-        } else if (recurrence1 && recurrence2 && !recurrence1.identicalTo(recurrence2)) {
+        }
+        if (recurrence1 !== null && recurrence2 === null) {
             return false;
         }
-
+        if (recurrence1 && recurrence2 && !recurrence1.identicalTo(recurrence2)) {
+            return false;
+        }
         return true;
     }
 

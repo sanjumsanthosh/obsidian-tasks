@@ -5,6 +5,8 @@
 import moment from 'moment';
 
 import type { Task } from '../../../../src/Task/Task';
+import { allCacheSampleData } from '../../../Obsidian/AllCacheSampleData';
+import { type SimulatedFile, readTasksFromSimulatedFile } from '../../../Obsidian/SimulatedFile';
 import { SampleTasks } from '../../../TestingTools/SampleTasks';
 import {
     type CustomPropertyDocsTestData,
@@ -365,6 +367,43 @@ describe('file properties', () => {
                 ],
             ],
             SampleTasks.withAllRootsPathsHeadings(),
+        ],
+    ];
+
+    it.each(testData)('%s results', (_: string, groups: QueryInstructionLineAndDescription[], tasks: Task[]) => {
+        verifyFunctionFieldGrouperSamplesOnTasks(groups, tasks);
+    });
+
+    it.each(testData)('%s docs', (_: string, groups: QueryInstructionLineAndDescription[], _tasks: Task[]) => {
+        verifyFunctionFieldGrouperSamplesForDocs(groups);
+    });
+});
+
+describe('obsidian properties', () => {
+    const tasks: Task[] = allCacheSampleData().flatMap((simulatedFile) => {
+        return readTasksFromSimulatedFile(simulatedFile as SimulatedFile);
+    });
+
+    const testData: CustomPropertyDocsTestData[] = [
+        // ---------------------------------------------------------------------------------
+        // PROPERTIES FIELDS
+        // ---------------------------------------------------------------------------------
+
+        [
+            'task.file.frontmatter',
+            [
+                [
+                    "group by function task.file.property('creation date') ?? 'no creation date'",
+                    "group tasks by 'creation date' date property",
+                ],
+                [
+                    `group by function \\
+    const value = task.file.property('creation date'); \\
+    return value ? window.moment(value).format('MMMM') : 'no month'`,
+                    "group tasks by month in 'creation date' date property",
+                ],
+            ],
+            tasks,
         ],
     ];
 
