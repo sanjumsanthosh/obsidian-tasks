@@ -1,39 +1,61 @@
-import { Notice } from 'obsidian';
 import { StatusType } from '../Statuses/StatusConfiguration';
 import type { Task } from './Task';
 
 export enum OnCompletion {
     Ignore = '',
+    Keep = 'keep', // Like Ignore, but is visible on task lines
     Delete = 'delete',
+}
+
+export function parseOnCompletionValue(inputOnCompletionValue: string) {
+    const onCompletionString = inputOnCompletionValue.trim().toLowerCase();
+    if (onCompletionString === 'delete') {
+        return OnCompletion.Delete;
+    } else if (onCompletionString === 'keep') {
+        return OnCompletion.Keep;
+    } else {
+        return OnCompletion.Ignore;
+    }
 }
 
 function returnWithoutCompletedInstance(tasks: Task[], changedStatusTask: Task) {
     return tasks.filter((task) => task !== changedStatusTask);
 }
 
-export function handleOnCompletion(task: Task, tasks: Task[]): Task[] {
-    const tasksArrayLength = tasks.length;
-    if (tasksArrayLength === 0) {
-        return tasks;
-    }
-    const startStatus = task.status;
-
-    const changedStatusTask = tasks[tasksArrayLength - 1];
+function keepTasks(originalTask: Task, changedStatusTask: Task) {
+    const startStatus = originalTask.status;
     const endStatus = changedStatusTask.status;
 
-    if (!task.onCompletion || endStatus.type !== StatusType.DONE || endStatus.type === startStatus.type) {
-        return tasks;
+    const statusDidNotChange = endStatus.type === startStatus.type;
+    const endStatusIsNotDone = endStatus.type !== StatusType.DONE;
+
+    return endStatusIsNotDone || statusDidNotChange;
+}
+
+export function handleOnCompletion(originalTask: Task, newTasks: Task[]): Task[] {
+    const tasksArrayLength = newTasks.length;
+    if (
+        originalTask.onCompletion === OnCompletion.Ignore ||
+        originalTask.onCompletion === OnCompletion.Keep ||
+        tasksArrayLength === 0
+    ) {
+        return newTasks;
+    }
+    const changedStatusTask = newTasks[tasksArrayLength - 1];
+    const keepAllTasks = keepTasks(originalTask, changedStatusTask);
+    if (keepAllTasks) {
+        return newTasks;
     }
 
-    const ocAction = task.onCompletion.toLowerCase();
+    const ocAction: OnCompletion = originalTask.onCompletion;
 
-    if ('delete' === ocAction) {
-        return returnWithoutCompletedInstance(tasks, changedStatusTask);
+    if (ocAction === OnCompletion.Delete) {
+        return returnWithoutCompletedInstance(newTasks, changedStatusTask);
     }
 
-    const errorText = 'Unknown "On Completion" action: ' + task.onCompletion;
-    const hintText = '\nClick here to clear';
-    const noticeText = errorText + hintText;
-    new Notice(noticeText, 0);
-    return tasks;
+    // We will only reach here when adding a new option to OnCompletion, and before
+    // the handler code has been added. This is expected to be found in tests.
+    console.log(`OnCompletion action ${ocAction} not yet implemented.`);
+
+    return newTasks;
 }

@@ -1,5 +1,7 @@
 ---
 publish: true
+aliases:
+  - What is New?/Changelog
 ---
 
 # Changelog
@@ -8,6 +10,8 @@ See also [[Breaking Changes]]: Tasks releases with version numbers ending `.0.0`
 
 _In recent [Tasks releases](https://github.com/obsidian-tasks-group/obsidian-tasks/releases)..._
 
+- 7.8.0.
+  - Add [[On Completion]] facility, to tidy up your completed tasks.
 - 7.7.0:
   - Queries can now use values in [[Obsidian Properties]] (also known as YAML or frontmatter) for filtering, sorting and grouping.
 - 7.6.0:
