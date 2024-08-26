@@ -6,9 +6,14 @@ import type { QueryLayoutOptions } from '../Layout/QueryLayoutOptions';
 import { TaskLayoutComponent, type TaskLayoutOptions } from '../Layout/TaskLayoutOptions';
 import { replaceTaskWithTasks } from '../Obsidian/File';
 import { StatusRegistry } from '../Statuses/StatusRegistry';
-import type { Task } from '../Task/Task';
+import { Task } from '../Task/Task';
 import { TaskRegularExpressions } from '../Task/TaskRegularExpressions';
 import { StatusMenu } from '../ui/Menus/StatusMenu';
+import type { AllTaskDateFields } from '../DateTime/DateFieldTypes';
+import { defaultTaskSaver } from '../ui/Menus/TaskEditingMenu';
+import { promptForDate } from '../ui/Menus/DatePicker';
+import { splitDateText } from '../DateTime/Postponer';
+import { DateMenu } from '../ui/Menus/DateMenu';
 import { TaskFieldRenderer } from './TaskFieldRenderer';
 
 /**
@@ -61,7 +66,9 @@ export class TaskLineRenderer {
         path: string,
         obsidianComponent: Component | null,
     ) {
-        if (!obsidianComponent) throw new Error('Must call the Obsidian renderer with an Obsidian Component object');
+        if (!obsidianComponent) {
+            return;
+        }
         await MarkdownRenderer.renderMarkdown(text, element, path, obsidianComponent);
     }
 
@@ -204,6 +211,28 @@ export class TaskLineRenderer {
                 // Add the component's attribute ('priority-medium', 'due-past-1d' etc.)
                 fieldRenderer.addDataAttribute(span, task, component);
                 fieldRenderer.addDataAttribute(li, task, component);
+
+                if (Task.allDateFields().includes(component)) {
+                    const componentDateField = component as AllTaskDateFields;
+
+                    // Note: The more convenient span.onClickEvent() doesn't work here, as it is not available when tests are run.
+                    span.addEventListener('click', (ev: MouseEvent) => {
+                        ev.preventDefault(); // suppress the default click behavior
+                        ev.stopPropagation(); // suppress further event propagation
+                        promptForDate(li, task, componentDateField, defaultTaskSaver);
+                    });
+
+                    span.addEventListener('contextmenu', (ev: MouseEvent) => {
+                        ev.preventDefault(); // suppress the default context menu
+                        ev.stopPropagation(); // suppress further event propagation
+                        const menu = new DateMenu(componentDateField, task, defaultTaskSaver);
+                        menu.showAtPosition({ x: ev.clientX, y: ev.clientY });
+                    });
+                    span.setAttribute(
+                        'title',
+                        `Click to edit ${splitDateText(componentDateField)}, Right-click for more options`,
+                    );
+                }
             }
         }
 

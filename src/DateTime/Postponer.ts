@@ -1,8 +1,9 @@
 import type { Moment, unitOfTime } from 'moment';
 import { capitalizeFirstLetter } from '../lib/StringHelpers';
-import { DateFallback } from '../Task/DateFallback';
 import { Task } from '../Task/Task';
+import { DateFallback } from './DateFallback';
 import { TasksDate } from './TasksDate';
+import type { AllTaskDateFields, HappensDate } from './DateFieldTypes';
 
 export function shouldShowPostponeButton(task: Task) {
     // don't postpone if any invalid dates
@@ -21,8 +22,6 @@ export function shouldShowPostponeButton(task: Task) {
     // only postpone not done tasks
     return !task.isDone && hasAValidHappensDate;
 }
-
-export type HappensDate = keyof Pick<Task, 'startDate' | 'scheduledDate' | 'dueDate'>;
 
 /**
  * Gets a {@link HappensDate} field from a {@link Task} with the following priority: due > scheduled > start.
@@ -179,6 +178,10 @@ export function fixedDateMenuItemTitle(task: Task, amount: number, timeUnit: uni
  */
 export function removeDateMenuItemTitle(task: Task, _amount: number, _timeUnit: unitOfTime.DurationConstructor) {
     const updatedDateType = getDateFieldToPostpone(task)!;
+    return removeDateMenuItemTitleForField(updatedDateType, task);
+}
+
+export function removeDateMenuItemTitleForField(updatedDateType: AllTaskDateFields, task: Task) {
     if (updatedDateType === 'scheduledDate' && task.scheduledDateIsInferred) {
         return 'Cannot remove inferred scheduled date';
     } else {
@@ -186,16 +189,16 @@ export function removeDateMenuItemTitle(task: Task, _amount: number, _timeUnit: 
     }
 }
 
-function prettyPrintDateFieldName(updatedDateType: HappensDate) {
+function prettyPrintDateFieldName(updatedDateType: AllTaskDateFields) {
     return capitalizeFirstLetter(updatedDateType.replace('Date', ''));
 }
 
-function splitDateText(updatedDateType: HappensDate) {
+export function splitDateText(updatedDateType: AllTaskDateFields) {
     return updatedDateType.replace('Date', ' date');
 }
 
-function postponeMenuItemTitleFromDate(
-    updatedDateType: HappensDate,
+export function postponeMenuItemTitleFromDate(
+    updatedDateType: AllTaskDateFields,
     dateToUpdate: moment.Moment,
     amount: number,
     timeUnit: unitOfTime.DurationConstructor,
@@ -206,11 +209,19 @@ function postponeMenuItemTitleFromDate(
     const amountOrArticle = amount != 1 ? amount : 'a';
     if (dateToUpdate.isSameOrBefore(window.moment(), 'day')) {
         const updatedDateDisplayText = prettyPrintDateFieldName(updatedDateType);
-        return `${updatedDateDisplayText} in ${amountOrArticle} ${timeUnit}, on ${formattedNewDate}`
+        const title =
+            amount >= 0
+                ? `${updatedDateDisplayText} in ${amountOrArticle} ${timeUnit}, on ${formattedNewDate}`
+                : `${updatedDateDisplayText} ${-amountOrArticle} ${timeUnit} ago, on ${formattedNewDate}`;
+        return title
+            .replace(' 1 day ago', ' yesterday')
             .replace(' in 0 days', ' today')
             .replace('in a day', 'tomorrow');
-    } else {
-        const updatedDateDisplayText = splitDateText(updatedDateType);
+    }
+    const updatedDateDisplayText = splitDateText(updatedDateType);
+    if (amount >= 0) {
         return `Postpone ${updatedDateDisplayText} by ${amountOrArticle} ${timeUnit}, to ${formattedNewDate}`;
+    } else {
+        return `Backdate ${updatedDateDisplayText} by ${-amountOrArticle} ${timeUnit}, to ${formattedNewDate}`;
     }
 }

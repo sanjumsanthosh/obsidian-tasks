@@ -10,7 +10,7 @@ import { State } from '../Obsidian/Cache';
 import type { GroupDisplayHeading } from '../Query/Group/GroupDisplayHeading';
 import type { TaskGroups } from '../Query/Group/TaskGroups';
 import type { QueryResult } from '../Query/QueryResult';
-import { postponeButtonTitle, shouldShowPostponeButton } from '../Scripting/Postponer';
+import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postponer';
 import type { TasksFile } from '../Scripting/TasksFile';
 import type { Task } from '../Task/Task';
 import { PostponeMenu } from '../ui/Menus/PostponeMenu';
@@ -48,7 +48,7 @@ export class QueryResultsRenderer {
     protected queryType: string; // whilst there is only one query type, there is no point logging this value
 
     private readonly renderMarkdown;
-    private readonly obsidianComponent: Component;
+    private readonly obsidianComponent: Component | null;
     private readonly settings: Settings;
 
     constructor(
@@ -57,7 +57,7 @@ export class QueryResultsRenderer {
         tasksFile: TasksFile,
         renderMarkdown: (markdown: string, el: HTMLElement, sourcePath: string, component: Component) => Promise<void>,
         settings: Settings,
-        obsidianComponent: Component,
+        obsidianComponent: Component | null,
     ) {
         this.source = source;
         this.tasksFile = tasksFile;
@@ -85,7 +85,7 @@ export class QueryResultsRenderer {
         return this.tasksFile?.path ?? undefined;
     }
 
-    public async render2(
+    public async render(
         state: State | State.Warm,
         tasks: Task[],
         content: HTMLDivElement,
@@ -172,7 +172,7 @@ export class QueryResultsRenderer {
         );
 
         const explanationsBlock = createAndAppendElement('pre', content);
-        explanationsBlock.addClasses(['plugin-tasks-query-explanation']);
+        explanationsBlock.classList.add('plugin-tasks-query-explanation');
         explanationsBlock.setText(explanationAsString);
         content.appendChild(explanationsBlock);
     }
@@ -198,11 +198,11 @@ export class QueryResultsRenderer {
     ): Promise<void> {
         const taskList = createAndAppendElement('ul', content);
 
-        taskList.addClasses(['contains-task-list', 'plugin-tasks-query-result']);
+        taskList.classList.add('contains-task-list', 'plugin-tasks-query-result');
         const taskLayout = new TaskLayout(this.query.taskLayoutOptions);
-        taskList.addClasses(taskLayout.generateHiddenClasses());
+        taskList.classList.add(...taskLayout.generateHiddenClasses());
         const queryLayout = new QueryLayout(this.query.queryLayoutOptions);
-        taskList.addClasses(queryLayout.getHiddenClasses());
+        taskList.classList.add(...queryLayout.getHiddenClasses());
 
         const groupingAttribute = this.getGroupingAttribute();
         if (groupingAttribute && groupingAttribute.length > 0) taskList.dataset.taskGroupBy = groupingAttribute;
@@ -235,7 +235,8 @@ export class QueryResultsRenderer {
         const footnotes = listItem.querySelectorAll('[data-footnote-id]');
         footnotes.forEach((footnote) => footnote.remove());
 
-        const extrasSpan = listItem.createSpan('task-extras');
+        const extrasSpan = createAndAppendElement('span', listItem);
+        extrasSpan.classList.add('task-extras');
 
         if (!this.query.queryLayoutOptions.hideUrgency) {
             this.addUrgency(extrasSpan, task);
@@ -260,13 +261,13 @@ export class QueryResultsRenderer {
 
     private addEditButton(listItem: HTMLElement, task: Task, queryRendererParameters: QueryRendererParameters) {
         const editTaskPencil = createAndAppendElement('a', listItem);
-        editTaskPencil.addClass('tasks-edit');
+        editTaskPencil.classList.add('tasks-edit');
         editTaskPencil.title = 'Edit task';
         editTaskPencil.href = '#';
 
-        editTaskPencil.onClickEvent((event: MouseEvent) => {
-            queryRendererParameters.editTaskPencilClickHandler(event, task, queryRendererParameters.allTasks);
-        });
+        editTaskPencil.addEventListener('click', (event: MouseEvent) =>
+            queryRendererParameters.editTaskPencilClickHandler(event, task, queryRendererParameters.allTasks),
+        );
     }
 
     private addUrgency(listItem: HTMLElement, task: Task) {
@@ -297,7 +298,11 @@ export class QueryResultsRenderer {
         }
 
         const headerEl = createAndAppendElement(header, content);
-        headerEl.addClass('tasks-group-heading');
+        headerEl.classList.add('tasks-group-heading');
+
+        if (this.obsidianComponent === null) {
+            return;
+        }
         await this.renderMarkdown(group.displayName, headerEl, this.tasksFile.path, this.obsidianComponent);
     }
 
@@ -308,7 +313,8 @@ export class QueryResultsRenderer {
         isFilenameUnique: boolean | undefined,
         queryRendererParameters: QueryRendererParameters,
     ) {
-        const backLink = listItem.createSpan({ cls: 'tasks-backlink' });
+        const backLink = createAndAppendElement('span', listItem);
+        backLink.classList.add('tasks-backlink');
 
         if (!shortMode) {
             backLink.append(' (');
@@ -318,9 +324,9 @@ export class QueryResultsRenderer {
 
         link.rel = 'noopener';
         link.target = '_blank';
-        link.addClass('internal-link');
+        link.classList.add('internal-link');
         if (shortMode) {
-            link.addClass('internal-link-short-mode');
+            link.classList.add('internal-link-short-mode');
         }
 
         let linkText: string;
@@ -330,7 +336,7 @@ export class QueryResultsRenderer {
             linkText = task.getLinkText({ isFilenameUnique }) ?? '';
         }
 
-        link.setText(linkText);
+        link.text = linkText;
 
         // Go to the line the task is defined at
         link.addEventListener('click', async (ev: MouseEvent) => {
@@ -352,9 +358,9 @@ export class QueryResultsRenderer {
         const buttonTooltipText = postponeButtonTitle(task, amount, timeUnit);
 
         const button = createAndAppendElement('a', listItem);
-        button.addClass('tasks-postpone');
+        button.classList.add('tasks-postpone');
         if (shortMode) {
-            button.addClass('tasks-postpone-short-mode');
+            button.classList.add('tasks-postpone-short-mode');
         }
         button.title = buttonTooltipText;
 
@@ -376,10 +382,9 @@ export class QueryResultsRenderer {
 
     private addTaskCount(content: HTMLDivElement, queryResult: QueryResult) {
         if (!this.query.queryLayoutOptions.hideTaskCount) {
-            content.createDiv({
-                text: queryResult.totalTasksCountDisplayText(),
-                cls: 'tasks-count',
-            });
+            const taskCount = createAndAppendElement('div', content);
+            taskCount.classList.add('task-count');
+            taskCount.textContent = queryResult.totalTasksCountDisplayText();
         }
     }
 

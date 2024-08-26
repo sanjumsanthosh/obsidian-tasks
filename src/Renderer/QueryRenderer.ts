@@ -8,7 +8,7 @@ import { getTaskLineAndFile, replaceTaskWithTasks } from '../Obsidian/File';
 import { TaskModal } from '../Obsidian/TaskModal';
 import type { TasksEvents } from '../Obsidian/TasksEvents';
 import { TasksFile } from '../Scripting/TasksFile';
-import { DateFallback } from '../Task/DateFallback';
+import { DateFallback } from '../DateTime/DateFallback';
 import type { Task } from '../Task/Task';
 import { QueryResultsRenderer } from './QueryResultsRenderer';
 import { createAndAppendElement } from './TaskLineRenderer';
@@ -136,7 +136,7 @@ class QueryRenderChild extends MarkdownRenderChild {
 
     private async render({ tasks, state }: { tasks: Task[]; state: State }) {
         const content = createAndAppendElement('div', this.containerEl);
-        await this.queryResultsRenderer.render2(state, tasks, content, {
+        await this.queryResultsRenderer.render(state, tasks, content, {
             allTasks: this.plugin.getTasks(),
             allMarkdownFiles: this.app.vault.getMarkdownFiles(),
             backlinksClickHandler,

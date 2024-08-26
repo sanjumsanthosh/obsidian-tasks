@@ -3,14 +3,14 @@ import { getSettings, getUserSelectedTaskFormat } from '../Config/Settings';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { StatusRegistry } from '../Statuses/StatusRegistry';
 import type { Status } from '../Statuses/Status';
-import { compareByDate } from '../lib/DateTools';
-import { TasksDate } from '../Scripting/TasksDate';
+import { compareByDate } from '../DateTime/DateTools';
+import { TasksDate } from '../DateTime/TasksDate';
 import { StatusType } from '../Statuses/StatusConfiguration';
 import type { TasksFile } from '../Scripting/TasksFile';
 import { PriorityTools } from '../lib/PriorityTools';
 import { logging } from '../lib/logging';
 import { logEndOfTaskEdit, logStartOfTaskEdit } from '../lib/LogTasksHelper';
-import { DateFallback } from './DateFallback';
+import { DateFallback } from '../DateTime/DateFallback';
 import { ListItem } from './ListItem';
 import type { Occurrence } from './Occurrence';
 import { Urgency } from './Urgency';
@@ -893,6 +893,9 @@ export class Task extends ListItem {
         return true;
     }
 
+    /**
+     * See also {@link AllTaskDateFields}
+     */
     public static allDateFields(): (keyof Task)[] {
         return [
             'createdDate' as keyof Task,

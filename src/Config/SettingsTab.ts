@@ -552,7 +552,7 @@ export class SettingsTab extends PluginSettingTab {
                     const fileContent = createStatusRegistryReport(statusSettings, statusRegistry, buttonName, version);
 
                     // Save the file
-                    const file = await app.vault.create(filename, fileContent);
+                    const file = await this.app.vault.create(filename, fileContent);
 
                     // And open the new file
                     const leaf = this.app.workspace.getLeaf(true);
@@ -611,6 +611,7 @@ export class SettingsTab extends PluginSettingTab {
             // Light and Dark themes - alphabetical order
             ['AnuPpuccin Theme', Themes.anuppuccinSupportedStatuses()],
             ['Aura Theme', Themes.auraSupportedStatuses()],
+            ['Border Theme', Themes.borderSupportedStatuses()],
             ['Ebullientworks Theme', Themes.ebullientworksSupportedStatuses()],
             ['ITS Theme & SlRvb Checkboxes', Themes.itsSupportedStatuses()],
             ['Minimal Theme', Themes.minimalSupportedStatuses()],
