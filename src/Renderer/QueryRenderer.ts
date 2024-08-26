@@ -12,16 +12,19 @@ import { DateFallback } from '../Task/DateFallback';
 import type { Task } from '../Task/Task';
 import { QueryResultsRenderer } from './QueryResultsRenderer';
 import { createAndAppendElement } from './TaskLineRenderer';
+import { Settings } from 'Config/Settings';
 
 export class QueryRenderer {
     private readonly app: App;
     private plugin: TasksPlugin;
     private readonly events: TasksEvents;
+    private readonly settings: Settings;
 
-    constructor({ plugin, events }: { plugin: TasksPlugin; events: TasksEvents }) {
+    constructor({ plugin, events, settings }: { plugin: TasksPlugin; events: TasksEvents, settings: Settings }) {
         this.app = plugin.app;
         this.plugin = plugin;
         this.events = events;
+        this.settings = settings;
 
         plugin.registerMarkdownCodeBlockProcessor('tasks', this._addQueryRenderChild.bind(this));
     }
@@ -34,6 +37,7 @@ export class QueryRenderer {
             plugin: this.plugin,
             events: this.events,
             container: element,
+            settings: this.settings,
             source,
             tasksFile: new TasksFile(context.sourcePath),
         });
@@ -57,6 +61,7 @@ class QueryRenderChild extends MarkdownRenderChild {
         plugin,
         events,
         container,
+        settings,
         source,
         tasksFile,
     }: {
@@ -66,6 +71,7 @@ class QueryRenderChild extends MarkdownRenderChild {
         container: HTMLElement;
         source: string;
         tasksFile: TasksFile;
+        settings: Settings;
     }) {
         super(container);
 
@@ -74,6 +80,7 @@ class QueryRenderChild extends MarkdownRenderChild {
             source,
             tasksFile,
             MarkdownRenderer.renderMarkdown,
+            settings,
             this,
         );
         this.app = app;

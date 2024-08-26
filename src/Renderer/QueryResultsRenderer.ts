@@ -15,6 +15,7 @@ import type { TasksFile } from '../Scripting/TasksFile';
 import type { Task } from '../Task/Task';
 import { PostponeMenu } from '../ui/Menus/PostponeMenu';
 import { TaskLineRenderer, createAndAppendElement } from './TaskLineRenderer';
+import { Settings } from 'Config/Settings';
 
 type BacklinksEventHandler = (ev: MouseEvent, task: Task) => Promise<void>;
 type EditButtonClickHandler = (event: MouseEvent, task: Task, allTasks: Task[]) => void;
@@ -48,18 +49,21 @@ export class QueryResultsRenderer {
 
     private readonly renderMarkdown;
     private readonly obsidianComponent: Component;
+    private readonly settings: Settings;
 
     constructor(
         className: string,
         source: string,
         tasksFile: TasksFile,
         renderMarkdown: (markdown: string, el: HTMLElement, sourcePath: string, component: Component) => Promise<void>,
+        settings: Settings,
         obsidianComponent: Component,
     ) {
         this.source = source;
         this.tasksFile = tasksFile;
         this.renderMarkdown = renderMarkdown;
         this.obsidianComponent = obsidianComponent;
+        this.settings = settings;
 
         // The engine is chosen on the basis of the code block language. Currently,
         // there is only the main engine for the plugin, this allows others to be
@@ -343,7 +347,7 @@ export class QueryResultsRenderer {
     }
 
     private addPostponeButton(listItem: HTMLElement, task: Task, shortMode: boolean) {
-        const amount = 1;
+        const amount = this.settings.defaultDaysToSkipDue;
         const timeUnit = 'day';
         const buttonTooltipText = postponeButtonTitle(task, amount, timeUnit);
 
