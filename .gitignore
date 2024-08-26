@@ -41,3 +41,4 @@ yarn-error.log
 *.bak
 bun.lockb
 local_sync.ps1
+.env

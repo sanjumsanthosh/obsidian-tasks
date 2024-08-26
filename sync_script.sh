@@ -1,5 +1,5 @@
 
-export OBSIDIAN_PLUGIN_ROOT="/Users/smsantho/Oracle Content/Notes/.obsidian/plugins"
+export OBSIDIAN_PLUGIN_ROOT=$(grep -oP '(?<=OBSIDIAN_PLUGIN_ROOT=").*(?=")' .env)
 
 yarn
 yarn run build
