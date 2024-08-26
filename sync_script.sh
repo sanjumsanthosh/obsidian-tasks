@@ -1,8 +1,8 @@
 
 export OBSIDIAN_PLUGIN_ROOT="/Users/smsantho/Oracle Content/Notes/.obsidian/plugins"
 
-pnpm install
-pnpm run build
+yarn
+yarn run build
 
 # cp main.js manifest.json styles.css resources/sample_vaults/Tasks-Demo/.obsidian/plugins/obsidian-tasks-plugin
 
