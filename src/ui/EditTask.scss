@@ -77,11 +77,17 @@
     }
 
     .tasks-modal-date-input {
+        //grid-column: 2;
         min-width: 15em;
     }
 
+    //.tasks-modal-calendar-button {
+    //    grid-column: 3;
+    //    color: var(--text-muted);
+    //}
+
     .tasks-modal-parsed-date {
-        grid-column: 4;
+        grid-column: 3;
         font-size: var(--font-ui-small);
     }
 
@@ -156,6 +162,10 @@
             grid-column: 1;
         }
 
+        //.tasks-modal-calendar-button {
+        //    grid-column: 2;
+        //}
+
         .tasks-modal-parsed-date {
             grid-column: 2;
         }
@@ -181,6 +191,10 @@
         .status-editor-status-selector {
             grid-column: 1;
         }
+
+        //.tasks-modal-calendar-button {
+        //    grid-column: 1;
+        //}
 
         > .tasks-modal-parsed-date {
             grid-column: 1;
