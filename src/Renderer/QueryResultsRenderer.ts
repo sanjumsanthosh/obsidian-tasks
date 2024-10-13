@@ -14,8 +14,8 @@ import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postp
 import type { TasksFile } from '../Scripting/TasksFile';
 import type { Task } from '../Task/Task';
 import { PostponeMenu } from '../ui/Menus/PostponeMenu';
-import { TaskLineRenderer, createAndAppendElement } from './TaskLineRenderer';
 import { Settings } from 'Config/Settings';
+import { TaskLineRenderer, type TextRenderer, createAndAppendElement } from './TaskLineRenderer';
 
 type BacklinksEventHandler = (ev: MouseEvent, task: Task) => Promise<void>;
 type EditButtonClickHandler = (event: MouseEvent, task: Task, allTasks: Task[]) => void;
@@ -47,6 +47,9 @@ export class QueryResultsRenderer {
     public query: IQuery;
     protected queryType: string; // whilst there is only one query type, there is no point logging this value
 
+    // Renders the description in TaskLineRenderer:
+    private readonly textRenderer;
+    // Renders the group heading in this class:
     private readonly renderMarkdown;
     private readonly obsidianComponent: Component | null;
     private readonly settings: Settings;
@@ -58,12 +61,14 @@ export class QueryResultsRenderer {
         renderMarkdown: (markdown: string, el: HTMLElement, sourcePath: string, component: Component) => Promise<void>,
         settings: Settings,
         obsidianComponent: Component | null,
+        textRenderer: TextRenderer = TaskLineRenderer.obsidianMarkdownRenderer,
     ) {
         this.source = source;
         this.tasksFile = tasksFile;
         this.renderMarkdown = renderMarkdown;
         this.obsidianComponent = obsidianComponent;
         this.settings = settings;
+        this.textRenderer = textRenderer;
 
         // The engine is chosen on the basis of the code block language. Currently,
         // there is only the main engine for the plugin, this allows others to be
@@ -208,6 +213,7 @@ export class QueryResultsRenderer {
         if (groupingAttribute && groupingAttribute.length > 0) taskList.dataset.taskGroupBy = groupingAttribute;
 
         const taskLineRenderer = new TaskLineRenderer({
+            textRenderer: this.textRenderer,
             obsidianComponent: this.obsidianComponent,
             parentUlElement: taskList,
             taskLayoutOptions: this.query.taskLayoutOptions,
