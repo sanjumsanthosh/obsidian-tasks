@@ -22,6 +22,8 @@ import { shouldSupportFiltering } from '../TestingTools/FilterTestHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
 import { Priority } from '../../src/Task/Priority';
 import { TaskLayoutComponent } from '../../src/Layout/TaskLayoutOptions';
+import query_using_properties from '../Obsidian/__test_data__/query_using_properties.json';
+import { getTasksFileFromMockData } from '../TestingTools/MockDataHelpers';
 
 window.moment = moment;
 
@@ -84,14 +86,22 @@ function isValidQueryGroup(filter: string) {
     lowerCaseFilterGaveExpectionInstruction(filter, query.grouping[0].instruction);
 }
 
-function isInvalidQueryInstruction(getQueryError: (source: string) => string | undefined, source: string) {
-    expect(getQueryError(source)).toEqual(`do not understand query
+function isInvalidQueryInstruction(
+    getQueryError: (source: string) => string | undefined,
+    source: string,
+    expectedErrorMessage: string,
+) {
+    expect(getQueryError(source)).toEqual(`${expectedErrorMessage}
 Problem line: "${source}"`);
 }
 
-function isInvalidQueryInstructionLowerAndUpper(getQueryError: (source: string) => string | undefined, source: string) {
-    isInvalidQueryInstruction(getQueryError, source);
-    isInvalidQueryInstruction(getQueryError, source.toUpperCase());
+function isInvalidQueryInstructionLowerAndUpper(
+    getQueryError: (source: string) => string | undefined,
+    source: string,
+    expectedErrorMessage: string = 'do not understand query',
+) {
+    isInvalidQueryInstruction(getQueryError, source, expectedErrorMessage);
+    isInvalidQueryInstruction(getQueryError, source.toUpperCase(), expectedErrorMessage);
 }
 
 describe('Query parsing', () => {
@@ -452,6 +462,7 @@ describe('Query parsing', () => {
             'full',
             'full mode',
             'hide backlink',
+            'hide backlinks',
             'hide cancelled date',
             'hide created date',
             'hide depends on',
@@ -466,6 +477,7 @@ describe('Query parsing', () => {
             'hide start date',
             'hide tags',
             'hide task count',
+            'hide tree',
             'hide urgency',
             'ignore global query',
             'limit 42',
@@ -475,6 +487,7 @@ describe('Query parsing', () => {
             'short',
             'short mode',
             'show backlink',
+            'show backlinks',
             'show cancelled date',
             'show created date',
             'show depends on',
@@ -489,6 +502,7 @@ describe('Query parsing', () => {
             'show start date',
             'show tags',
             'show task count',
+            'show tree',
             'show urgency',
         ];
         test.concurrent.each<string>(filters)('recognises %j', (filter) => {
@@ -525,6 +539,18 @@ describe('Query parsing', () => {
         });
     });
 
+    it('should allow spaces between show or hide and a Query option', () => {
+        const query1 = new Query('show  tree');
+        expect(query1.queryLayoutOptions.hideTree).toBe(false);
+        expect(query1.error).toBeUndefined();
+    });
+
+    it('should allow spaces between show or hide and a Task option', () => {
+        const query1 = new Query('hide  priority');
+        expect(query1.taskLayoutOptions.isShown(TaskLayoutComponent.Priority)).toBe(false);
+        expect(query1.error).toBeUndefined();
+    });
+
     it('should parse ambiguous sort by queries correctly', () => {
         expect(new Query('sort by status').sorting[0].property).toEqual('status');
         expect(new Query('SORT BY STATUS').sorting[0].property).toEqual('status');
@@ -552,6 +578,12 @@ describe('Query parsing', () => {
         // Check that 'full' reverses short mode:
         expect(new Query('short\nfull mode').queryLayoutOptions.shortMode).toEqual(false);
         expect(new Query('short mode\nfull').queryLayoutOptions.shortMode).toEqual(false);
+    });
+
+    it('should cope with missing end-of-line character in query ending with continuation character - #3137', () => {
+        const query = new Query('path includes query.md \\');
+        expect(query.filters.length).toEqual(1);
+        expect(query.filters[0].instruction).toEqual('path includes query.md');
     });
 
     describe('should include instruction in parsing error messages', () => {
@@ -607,7 +639,7 @@ Problem line: "${source}"`,
 
         it('for invalid hide', () => {
             const source = 'hide nonsense';
-            isInvalidQueryInstructionLowerAndUpper(getQueryError, source);
+            isInvalidQueryInstructionLowerAndUpper(getQueryError, source, 'do not understand hide/show option');
         });
 
         it('for unknown instruction', () => {
@@ -736,6 +768,123 @@ Problem statement:
                     '    path includes {{query.file.noSuchProperty}}',
             );
             expect(query.filters.length).toEqual(0);
+        });
+    });
+
+    describe('properties in the query file', () => {
+        const file = getTasksFileFromMockData(query_using_properties);
+
+        describe('via placeholders', () => {
+            it('should use query.file.property() via placeholder', () => {
+                // Act
+                const source = "{{query.file.property('task_instruction')}}";
+                const query = new Query(source, file);
+
+                // Assert
+                expect(file.property('task_instruction')).toEqual('group by filename');
+
+                expect(query.error).toBeUndefined();
+                expect(query.grouping.length).toEqual(1);
+                expect(query.grouping[0].instruction).toEqual('group by filename');
+
+                expect(query.explainQuery()).toMatchInlineSnapshot(`
+                    "No filters supplied. All tasks will match the query.
+
+                    {{query.file.property('task_instruction')}} =>
+                    group by filename
+
+                    No sorting instructions supplied.
+                    "
+                `);
+            });
+
+            it('cannot yet access multi-line property with query.file.property via placeholder', () => {
+                // Act
+                const source = '{{query.file.property("task_instructions")}}';
+                const query = new Query(source, file);
+
+                // This fails because the placeholder is replaced by multiple lines.
+                // And currently, the parsing of lines in Query assumes that placeholders
+                // do not increase the number of lines in the query.
+
+                // Assert
+                expect(file.frontmatter.task_instructions).toEqual(`group by root
+group by folder
+group by filename
+`);
+
+                expect(query.error).not.toBeUndefined();
+                expect(query.error).toMatchInlineSnapshot(`
+                    "do not understand query
+                    Problem statement:
+                        {{query.file.property("task_instructions")}} =>
+                        group by root
+                    group by folder
+                    group by filename
+
+                    "
+                `);
+
+                expect(query.explainQuery()).toMatchInlineSnapshot(`
+                    "Query has an error:
+                    do not understand query
+                    Problem statement:
+                        {{query.file.property("task_instructions")}} =>
+                        group by root
+                    group by folder
+                    group by filename
+
+
+                    "
+                `);
+            });
+        });
+
+        describe('via "filter by function"', () => {
+            it('should use a list property in a custom filter', () => {
+                // Act
+                const source = `
+filter by function \\
+    if (!query.file.hasProperty('root_dirs_to_search')) { \\
+        throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
+    } \\
+    const roots = query.file.property('root_dirs_to_search'); \\
+    return roots.includes(task.file.root);
+`;
+                const query = new Query(source, file);
+
+                // Assert
+                expect(file.frontmatter.root_dirs_to_search).toEqual(['Formats/', 'Filters/']);
+
+                expect(query.error).toBeUndefined();
+                expect(query.filters.length).toEqual(1);
+
+                expect(query.explainQuery()).toMatchInlineSnapshot(`
+                    "filter by function \\
+                        if (!query.file.hasProperty('root_dirs_to_search')) { \\
+                            throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
+                        } \\
+                        const roots = query.file.property('root_dirs_to_search'); \\
+                        return roots.includes(task.file.root);
+                     =>
+                    filter by function if (!query.file.hasProperty('root_dirs_to_search')) { throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); } const roots = query.file.property('root_dirs_to_search'); return roots.includes(task.file.root);
+
+                    No grouping instructions supplied.
+
+                    No sorting instructions supplied.
+                    "
+                `);
+
+                function checkNumberOfMatches(expectedNumberOfMatches: number, path: string) {
+                    const queryResult = query.applyQueryToTasks([new TaskBuilder().path(path).build()]);
+                    expect(queryResult.totalTasksCount).toEqual(expectedNumberOfMatches);
+                }
+
+                checkNumberOfMatches(1, 'Formats/Some Sample file.md');
+                checkNumberOfMatches(1, 'Filters/Another file.md');
+                checkNumberOfMatches(0, 'filters/Another file.md'); // it is case-sensitive
+                checkNumberOfMatches(0, 'Somewhere/Place/Else.md');
+            });
         });
     });
 });
@@ -1301,6 +1450,11 @@ describe('Query', () => {
         it('should allow to hide "on completion"', () => {
             const query = new Query('hide on completion');
             expect(query.taskLayoutOptions.isShown(TaskLayoutComponent.OnCompletion)).toEqual(false);
+        });
+
+        it('should hide "tree" by default', () => {
+            const query = new Query('');
+            expect(query.queryLayoutOptions.hideTree).toEqual(true);
         });
     });
 

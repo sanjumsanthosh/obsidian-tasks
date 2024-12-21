@@ -14,6 +14,11 @@ import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { verifyAllCombinations3Async } from '../TestingTools/CombinationApprovalsAsync';
 import { prettifyHTML } from '../TestingTools/HTMLHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
+import {
+    getAndCheckApplyButton,
+    getAndCheckRenderedDescriptionElement,
+    getAndCheckRenderedElement,
+} from './RenderingTestHelpers';
 
 window.moment = moment;
 /**
@@ -43,33 +48,10 @@ function renderAndCheckModal(task: Task, onSubmit: (updatedTasks: Task[]) => voi
         statusOptions: StatusRegistry.getInstance().registeredStatuses,
         onSubmit,
         allTasks,
-        modal: null,
     });
     const { container } = result;
     expect(() => container).toBeTruthy();
     return { result, container };
-}
-
-/**
- * Find the element with the given id.
- * Template type T might be, for example, HTMLInputElement or HTMLSelectElement
- * @param container
- * @param elementId
- */
-function getAndCheckRenderedElement<T>(container: HTMLElement, elementId: string) {
-    const element = container.ownerDocument.getElementById(elementId) as T;
-    expect(() => element).toBeTruthy();
-    return element;
-}
-
-function getAndCheckRenderedDescriptionElement(container: HTMLElement): HTMLInputElement {
-    return getAndCheckRenderedElement<HTMLInputElement>(container, 'description');
-}
-
-function getAndCheckApplyButton(result: RenderResult<EditTask>): HTMLButtonElement {
-    const submit = result.getByText('Apply') as HTMLButtonElement;
-    expect(submit).toBeTruthy();
-    return submit;
 }
 
 async function editInputElement(inputElement: HTMLInputElement, newValue: string) {
@@ -561,6 +543,15 @@ describe('Task editing', () => {
     });
 
     describe('Date editing', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date('2024-11-27'));
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
         const line = '- [ ] simple';
 
         it('should edit and save cancelled date', async () => {
@@ -585,6 +576,21 @@ describe('Task editing', () => {
 
         it('should edit and save start date', async () => {
             expect(await editFieldAndSave(line, 'start', '2024-01-01')).toEqual('- [ ] simple 🛫 2024-01-01');
+        });
+
+        it('should edit and save start date "today"', async () => {
+            expect(await editFieldAndSave(line, 'start', 'today')).toEqual('- [ ] simple 🛫 2024-11-27');
+        });
+
+        it('should edit and save start date "this week"', async () => {
+            // Confirm understanding that today's date is a Wednesday
+            expect(moment().format('YYYY-MM-DD dddd')).toEqual('2024-11-27 Wednesday');
+
+            // See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/2588
+            // With 'only future dates' being on by default, the selection of a date
+            // earlier than today is unexpected.
+            // This was written with Tasks using "chrono-node": "2.3.9"
+            expect(await editFieldAndSave(line, 'start', 'this week')).toEqual('- [ ] simple 🛫 2024-11-24');
         });
     });
 
@@ -675,7 +681,9 @@ describe('Edit Modal HTML snapshot tests', () => {
     });
 
     function verifyModalHTML() {
-        const task = taskFromLine({ line: '- [ ] absolutely to do', path: '' });
+        // Populate task a valid and an invalid date. Note that the valid date value
+        // is not visible in the HTML output.
+        const task = taskFromLine({ line: '- [ ] absolutely to do 🛫 2024-01-01 ⏳ 2024-02-33', path: '' });
         const onSubmit = () => {};
         const allTasks = [task];
         const { container } = renderAndCheckModal(task, onSubmit, allTasks);

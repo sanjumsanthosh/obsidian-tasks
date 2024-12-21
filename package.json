@@ -1,6 +1,6 @@
 {
   "name": "obsidian-tasks",
-  "version": "7.11.1",
+  "version": "7.14.0",
   "description": "Task management for the Obsidian knowledge base",
   "main": "main.js",
   "engines": {
@@ -11,13 +11,13 @@
     "build": "node esbuild.config.mjs production",
     "build:dev": "node esbuild.config.mjs development",
     "lint": "eslint ./src --fix && eslint ./tests --fix && tsc --noEmit --pretty && svelte-check",
-    "lint:markdown": "markdownlint-cli2 --fix \"**/*.md\" \"#contributing/_meta\" \"#docs/_meta\" \"#docs-snippets\" \"#node_modules\"  \"#tests\"  \"#resources/sample_vaults/Tasks-Demo/_meta/templates\"  \"#resources/sample_vaults/Tasks-Demo/Test Data\"  \"#resources/sample_vaults/Tasks-Demo/Manual Testing/Smoke test Kanban Integration.md\" ",
-    "lint:test-data": "eslint ./tests/Obsidian/__test_data__ --fix",
+    "lint:markdown": "markdownlint-cli2 --fix \"**/*.md\" \"#contributing/_meta\" \"#docs/_meta\" \"#docs/snippets-embedded-in-multiple-pages\" \"#docs-snippets\" \"#node_modules\"  \"#tests\"  \"#resources/sample_vaults/Tasks-Demo/_meta/templates\"  \"#resources/sample_vaults/Tasks-Demo/Test Data\"  \"#resources/sample_vaults/Tasks-Demo/Manual Testing/Smoke test Kanban Integration.md\" ",
     "test": "jest --ci",
     "test:dev": "jest --watch",
     "deploy:local": "pwsh -ExecutionPolicy Unrestricted -NoProfile -File ./scripts/Test-TasksInLocalObsidian.ps1",
     "circular-deps-text": "madge --circular --extensions ts ./src > circular-deps.txt",
-    "circular-deps-image": "madge --circular --extensions ts ./src --image circular-deps.png"
+    "circular-deps-image": "madge --circular --extensions ts ./src --image circular-deps.png",
+    "code-docs": "typedoc \"src/**/*\""
   },
   "keywords": [
     "obsidian",
@@ -63,10 +63,13 @@
     "svelte-preprocess": "^5.0.4",
     "ts-jest": "^29.2.5",
     "tslib": "^2.5.2",
+    "typedoc": "^0.27.3",
+    "typedoc-plugin-mdn-links": "^4.0.4",
+    "typedoc-umlclass": "^0.10.1",
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@floating-ui/dom": "^1.5.3",
+    "@floating-ui/dom": "^1.6.12",
     "boon-js": "^2.0.5",
     "chrono-node": "2.3.9",
     "eslint-plugin-svelte3": "^4.0.0",
@@ -75,6 +78,6 @@
     "mustache": "^4.2.0",
     "mustache-validator": "^0.2.0",
     "rrule": "^2.7.2",
-    "svelte-eslint-parser": "^0.33.1"
+    "svelte-eslint-parser": "^0.43.0"
   }
 }

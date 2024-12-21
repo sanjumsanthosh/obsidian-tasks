@@ -12,12 +12,16 @@ _In recent [Tasks releases](https://github.com/obsidian-tasks-group/obsidian-tas
 
 ## 7.x releases
 
+- 7.14.0:
+  - Add [[Editing Dates#Date-picker on task dates|date picker]] to Reading mode and Tasks query search results.
+- 7.13.0:
+  - Add [[Create or edit Task#Date picker|date picker]] to the Edit Task modal.
+- 7.12.0:
+  - Add [[Layout#Hide and Show Tree|display of nested tasks]] in search results, with `show tree`
 - 7.11.0:
   - Add [[Sorting#Random sorting|random sorting]], with `sort by random`
 - 7.10.0:
-  - Right-click on any task date field in Reading and Query Results views to:
-    - postpone Start, Scheduled and Due dates
-    - advance Created, Cancelled and Done dates
+  - Add [[Editing Dates#Context menu on task dates|right-click context menu on dates]] in Reading and Query Results views.
 - 7.9.0:
   - Add [[Layout|hide and show]] instructions `hide on completion` and `show on completion`.
   - Add one-click support for the [[Border Theme|Border]] theme.

@@ -1,14 +1,16 @@
+import { TaskRegularExpressions } from './TaskRegularExpressions';
+import type { Task } from './Task';
+
 export class ListItem {
-    /** The original line read from file.
-     *
-     * Will be empty if Task was created programmatically
-     * (for example, by Create or Edit Task, or in tests, including via {@link TaskBuilder}). */
+    // The original line read from file.
     public readonly originalMarkdown: string;
 
     public readonly parent: ListItem | null = null;
     public readonly children: ListItem[] = [];
+    public readonly description: string;
 
     constructor(originalMarkdown: string, parent: ListItem | null) {
+        this.description = originalMarkdown.replace(TaskRegularExpressions.listItemRegex, '').trim();
         this.originalMarkdown = originalMarkdown;
         this.parent = parent;
 
@@ -43,5 +45,69 @@ export class ListItem {
      */
     get isRoot(): boolean {
         return this.parent === null;
+    }
+
+    /**
+     * Find to find the closest parent that is a {@link Task}
+     */
+    public findClosestParentTask(): Task | null {
+        let closestParentTask = this.parent;
+
+        while (closestParentTask !== null) {
+            // Lazy load the Task class to avoid circular dependencies
+            const { Task } = require('./Task');
+            if (closestParentTask instanceof Task) {
+                return closestParentTask as Task;
+            }
+            closestParentTask = closestParentTask.parent;
+        }
+
+        return null;
+    }
+
+    get isTask() {
+        return false;
+    }
+
+    /**
+     * Compare all the fields in another ListItem, to detect any differences from this one.
+     *
+     * If any field is different in any way, it will return false.
+     *
+     * @note Use {@link Task.identicalTo} to compare {@link Task} objects.
+     *
+     * @param other - if this is in fact a {@link Task}, the result of false.
+     */
+    identicalTo(other: ListItem) {
+        if (this.constructor.name !== other.constructor.name) {
+            return false;
+        }
+
+        if (this.originalMarkdown !== other.originalMarkdown) {
+            return false;
+        }
+
+        return ListItem.listsAreIdentical(this.children, other.children);
+    }
+
+    /**
+     * Compare two lists of ListItem objects, and report whether their
+     * contents, including any children, are identical and in the same order.
+     *
+     * This can be useful for optimising code if it is guaranteed that
+     * there are no possible differences in the tasks in a file
+     * after an edit, for example.
+     *
+     * If any field is different in any task or list item, it will return false.
+     *
+     * @param list1
+     * @param list2
+     */
+    static listsAreIdentical(list1: ListItem[], list2: ListItem[]): boolean {
+        if (list1.length !== list2.length) {
+            return false;
+        }
+
+        return list1.every((item, index) => item.identicalTo(list2[index]));
     }
 }

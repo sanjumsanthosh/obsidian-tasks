@@ -37,7 +37,6 @@ interface TaskComponents {
  * the extensions provided by this plugin. This is used to parse and
  * generate the markdown task for all updates and replacements.
  *
- * @export
  * @class Task
  */
 export class Task extends ListItem {
@@ -165,7 +164,6 @@ export class Task extends ListItem {
      * @param {TaskLocation} taskLocation - The location of the task line
      * @param {(Moment | null)} fallbackDate - The date to use as the scheduled date if no other date is set
      * @return {*}  {(Task | null)}
-     * @memberof Task
      * @see parseTaskSignifiers
      */
     public static fromLine({
@@ -280,7 +278,6 @@ export class Task extends ListItem {
      *
      * @note Output depends on {@link Settings.taskFormat}
      * @return {*}  {string}
-     * @memberof Task
      */
     public toString(): string {
         return getUserSelectedTaskFormat().taskSerializer.serialize(this);
@@ -291,7 +288,6 @@ export class Task extends ListItem {
      *
      * @note Output depends on {@link Settings.taskFormat}
      * @return {*}  {string}
-     * @memberof Task
      */
     public toFileLineString(): string {
         return `${this.indentation}${this.listMarker} [${this.status.symbol}] ${this.toString()}`;
@@ -490,6 +486,15 @@ export class Task extends ListItem {
         const potentiallyPrunedTasks = handleOnCompletion(this, newTasks);
         const { recurrenceOnNextLine } = getSettings();
         return recurrenceOnNextLine ? potentiallyPrunedTasks.reverse() : potentiallyPrunedTasks;
+    }
+
+    /**
+     * Return whether this object is a {@link Task}.
+     *
+     * This is useful at run-time to discover whether a {@link ListItem} reference is in fact a {@link Task}.
+     */
+    get isTask() {
+        return true;
     }
 
     /**
@@ -785,26 +790,6 @@ export class Task extends ListItem {
     }
 
     /**
-     * Compare two lists of Task objects, and report whether their
-     * tasks are identical in the same order.
-     *
-     * This can be useful for optimising code if it is guaranteed that
-     * there are no possible differences in the tasks in a file
-     * after an edit, for example.
-     *
-     * If any field is different in any task, it will return false.
-     *
-     * @param oldTasks
-     * @param newTasks
-     */
-    static tasksListsIdentical(oldTasks: Task[], newTasks: Task[]): boolean {
-        if (oldTasks.length !== newTasks.length) {
-            return false;
-        }
-        return oldTasks.every((oldTask, index) => oldTask.identicalTo(newTasks[index]));
-    }
-
-    /**
      * Compare all the fields in another Task, to detect any differences from this one.
      *
      * If any field is different in any way, it will return false.
@@ -816,6 +801,11 @@ export class Task extends ListItem {
      * @param other
      */
     public identicalTo(other: Task) {
+        // First compare child Task and ListItem objects, and any other data in ListItem:
+        if (!super.identicalTo(other)) {
+            return false;
+        }
+
         // NEW_TASK_FIELD_EDIT_REQUIRED
 
         // Based on ideas from koala. AquaCat and javalent in Discord:

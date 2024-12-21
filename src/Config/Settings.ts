@@ -161,7 +161,6 @@ function addNewOptionsToUserSettings<KeysAndValues>(defaultValues: KeysAndValues
  * update the flags to make sure they are all shown in the data.json
  * file. Exposure via the settings UI is optional.
  *
- * @export
  * @returns true if the feature is enabled.
  */
 export const getSettings = (): Settings => {
@@ -216,7 +215,6 @@ export const updateGeneralSetting = (name: string, value: string | boolean): Set
 /**
  * Returns the enabled state of the feature from settings.
  *
- * @export
  * @param internalName the internal name of the feature.
  * @returns true if the feature is enabled.
  */
@@ -227,7 +225,6 @@ export const isFeatureEnabled = (internalName: string): boolean => {
 /**
  * enables toggling the feature and returning the current collection with state.
  *
- * @export
  * @param internalName the internal name of the feature.
  * @param enabled the expected state of the feature.
  * @returns the features with the specified feature toggled.
@@ -240,7 +237,6 @@ export const toggleFeature = (internalName: string, enabled: boolean): FeatureFl
 /**
  * Retrieves the {@link TaskFormat} that corresponds to user's selection ({@link Settings.taskFormat})
  *
- * @exports
  * @returns {TaskFormat}
  */
 export function getUserSelectedTaskFormat(): TaskFormat {

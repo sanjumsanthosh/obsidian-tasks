@@ -69,7 +69,7 @@ This section describes the *how*...
 
 ### Tags
 
-#### Show files from tasks with a specific tag in frontmatter
+#### Show tasks from files with a specific tag in frontmatter
 
 ```javascript
 filter by function task.file.property('tags').includes('#sample-tag')
@@ -86,6 +86,8 @@ filter by function ! task.file.property('tags').includes('#notasks')
 If you wanted to adopt such a convention throughout all your Tasks queries, you could add the above to your [[Global Query]].
 
 ### Kanban plugin
+
+You can control how Tasks should treat tasks in [[Kanban Plugin]] files.
 
 #### Only show tasks in Kanban plugin files
 

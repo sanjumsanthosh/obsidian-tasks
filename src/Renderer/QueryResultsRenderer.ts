@@ -1,18 +1,19 @@
 import type { Component, TFile } from 'obsidian';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { GlobalQuery } from '../Config/GlobalQuery';
+import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postponer';
 import type { IQuery } from '../IQuery';
 import { QueryLayout } from '../Layout/QueryLayout';
 import { TaskLayout } from '../Layout/TaskLayout';
 import { PerformanceTracker } from '../lib/PerformanceTracker';
-import { explainResults, getQueryForQueryRenderer } from '../lib/QueryRendererHelper';
+import { explainResults, getQueryForQueryRenderer } from '../Query/QueryRendererHelper';
 import { State } from '../Obsidian/Cache';
 import type { GroupDisplayHeading } from '../Query/Group/GroupDisplayHeading';
 import type { TaskGroups } from '../Query/Group/TaskGroups';
 import type { QueryResult } from '../Query/QueryResult';
-import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postponer';
 import type { TasksFile } from '../Scripting/TasksFile';
-import type { Task } from '../Task/Task';
+import type { ListItem } from '../Task/ListItem';
+import { Task } from '../Task/Task';
 import { PostponeMenu } from '../ui/Menus/PostponeMenu';
 import { Settings } from 'Config/Settings';
 import { TaskLineRenderer, type TextRenderer, createAndAppendElement } from './TaskLineRenderer';
@@ -192,22 +193,22 @@ export class QueryResultsRenderer {
             // will be empty, and no headings will be added.
             await this.addGroupHeadings(content, group.groupHeadings);
 
-            await this.createTaskList(group.tasks, content, queryRendererParameters);
+            const renderedListItems: Set<ListItem> = new Set();
+            await this.createTaskList(group.tasks, content, queryRendererParameters, renderedListItems);
         }
     }
 
     private async createTaskList(
-        tasks: Task[],
-        content: HTMLDivElement,
+        listItems: ListItem[],
+        content: HTMLElement,
         queryRendererParameters: QueryRendererParameters,
+        renderedListItems: Set<ListItem>,
     ): Promise<void> {
         const taskList = createAndAppendElement('ul', content);
 
         taskList.classList.add('contains-task-list', 'plugin-tasks-query-result');
-        const taskLayout = new TaskLayout(this.query.taskLayoutOptions);
-        taskList.classList.add(...taskLayout.generateHiddenClasses());
-        const queryLayout = new QueryLayout(this.query.queryLayoutOptions);
-        taskList.classList.add(...queryLayout.getHiddenClasses());
+        taskList.classList.add(...new TaskLayout(this.query.taskLayoutOptions).generateHiddenClasses());
+        taskList.classList.add(...new QueryLayout(this.query.queryLayoutOptions).getHiddenClasses());
 
         const groupingAttribute = this.getGroupingAttribute();
         if (groupingAttribute && groupingAttribute.length > 0) taskList.dataset.taskGroupBy = groupingAttribute;
@@ -220,11 +221,124 @@ export class QueryResultsRenderer {
             queryLayoutOptions: this.query.queryLayoutOptions,
         });
 
-        for (const [taskIndex, task] of tasks.entries()) {
-            await this.addTask(taskList, taskLineRenderer, task, taskIndex, queryRendererParameters);
+        for (const [listItemIndex, listItem] of listItems.entries()) {
+            if (this.query.queryLayoutOptions.hideTree) {
+                /* Old-style rendering of tasks:
+                 *  - What is rendered:
+                 *      - Only task lines that match the query are rendered, as a flat list
+                 *  - The order that lines are rendered:
+                 *      - Tasks are rendered in the order specified in 'sort by' instructions and default sort order.
+                 */
+                if (listItem instanceof Task) {
+                    await this.addTask(taskList, taskLineRenderer, listItem, listItemIndex, queryRendererParameters);
+                }
+            } else {
+                /* New-style rendering of tasks:
+                 *  - What is rendered:
+                 *      - Task lines that match the query are rendered, as a tree.
+                 *      - Currently, all child tasks and list items of the found tasks are shown,
+                 *        including any child tasks that did not match the query.
+                 *  - The order that lines are rendered:
+                 *      - The top-level/outermost tasks are sorted in the order specified in 'sort by'
+                 *        instructions and default sort order.
+                 *      - Child tasks (and list items) are shown in their original order in their Markdown file.
+                 */
+                await this.addTaskOrListItemAndChildren(
+                    taskList,
+                    taskLineRenderer,
+                    listItem,
+                    listItemIndex,
+                    queryRendererParameters,
+                    listItems,
+                    renderedListItems,
+                );
+            }
         }
 
         content.appendChild(taskList);
+    }
+
+    private willBeRenderedLater(listItem: ListItem, renderedListItems: Set<ListItem>, listItems: ListItem[]) {
+        const closestParentTask = listItem.findClosestParentTask();
+        if (!closestParentTask) {
+            return false;
+        }
+
+        if (!renderedListItems.has(closestParentTask)) {
+            // This task is a direct or indirect child of another task that we are waiting to draw,
+            // so don't draw it yet, it will be done recursively later.
+            if (listItems.includes(closestParentTask)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private alreadyRendered(listItem: ListItem, renderedListItems: Set<ListItem>) {
+        return renderedListItems.has(listItem);
+    }
+
+    private async addTaskOrListItemAndChildren(
+        taskList: HTMLUListElement,
+        taskLineRenderer: TaskLineRenderer,
+        listItem: ListItem,
+        taskIndex: number,
+        queryRendererParameters: QueryRendererParameters,
+        listItems: ListItem[],
+        renderedListItems: Set<ListItem>,
+    ) {
+        if (this.alreadyRendered(listItem, renderedListItems)) {
+            return;
+        }
+
+        if (this.willBeRenderedLater(listItem, renderedListItems, listItems)) {
+            return;
+        }
+
+        const listItemElement = await this.addTaskOrListItem(
+            taskList,
+            taskLineRenderer,
+            listItem,
+            taskIndex,
+            queryRendererParameters,
+        );
+        renderedListItems.add(listItem);
+
+        if (listItem.children.length > 0) {
+            await this.createTaskList(listItem.children, listItemElement, queryRendererParameters, renderedListItems);
+            listItem.children.forEach((childTask) => {
+                renderedListItems.add(childTask);
+            });
+        }
+    }
+
+    private async addTaskOrListItem(
+        taskList: HTMLUListElement,
+        taskLineRenderer: TaskLineRenderer,
+        listItem: ListItem,
+        taskIndex: number,
+        queryRendererParameters: QueryRendererParameters,
+    ) {
+        if (listItem instanceof Task) {
+            return await this.addTask(taskList, taskLineRenderer, listItem, taskIndex, queryRendererParameters);
+        }
+
+        return await this.addListItem(taskList, listItem);
+    }
+
+    private async addListItem(taskList: HTMLUListElement, listItem: ListItem) {
+        const li = createAndAppendElement('li', taskList);
+
+        const span = createAndAppendElement('span', li);
+        await this.textRenderer(
+            listItem.description,
+            span,
+            listItem.findClosestParentTask()?.path ?? '',
+            this.obsidianComponent,
+        );
+
+        return li;
     }
 
     private async addTask(
@@ -263,6 +377,8 @@ export class QueryResultsRenderer {
         }
 
         taskList.appendChild(listItem);
+
+        return listItem;
     }
 
     private addEditButton(listItem: HTMLElement, task: Task, queryRendererParameters: QueryRendererParameters) {
@@ -278,7 +394,9 @@ export class QueryResultsRenderer {
 
     private addUrgency(listItem: HTMLElement, task: Task) {
         const text = new Intl.NumberFormat().format(task.urgency);
-        listItem.createSpan({ text, cls: 'tasks-urgency' });
+        const span = createAndAppendElement('span', listItem);
+        span.textContent = text;
+        span.classList.add('tasks-urgency');
     }
 
     /**
