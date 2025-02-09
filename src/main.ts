@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian';
 
 import type { Task } from 'Task/Task';
+import { i18n, initializeI18n } from './i18n/i18n';
 import { Cache } from './Obsidian/Cache';
 import { Commands } from './Commands';
 import { GlobalQuery } from './Config/GlobalQuery';
@@ -17,6 +18,7 @@ import { EditorSuggestor } from './Suggestor/EditorSuggestorPopup';
 import { StatusSettings } from './Config/StatusSettings';
 import { tasksApiV1 } from './Api';
 import { GlobalFilter } from './Config/GlobalFilter';
+import { QueryFileDefaults } from './Query/QueryFileDefaults';
 
 export default class TasksPlugin extends Plugin {
     private cache: Cache | undefined;
@@ -28,8 +30,10 @@ export default class TasksPlugin extends Plugin {
     }
 
     async onload() {
+        await initializeI18n();
+
         logging.registerConsoleLogger();
-        log('info', `loading plugin "${this.manifest.name}" v${this.manifest.version}`);
+        log('info', i18n.t('main.loadingPlugin', { name: this.manifest.name, version: this.manifest.version }));
 
         await this.loadSettings();
 
@@ -58,6 +62,9 @@ export default class TasksPlugin extends Plugin {
         this.inlineRenderer = new InlineRenderer({ plugin: this });
         this.queryRenderer = new QueryRenderer({ plugin: this, events, settings: getSettings() });
 
+        // Update types.json.
+        this.setObsidianPropertiesTypes();
+
         this.registerEditorExtension(newLivePreviewExtension());
         this.registerEditorSuggest(new EditorSuggestor(this.app, getSettings(), this));
         new Commands({ plugin: this });
@@ -69,7 +76,7 @@ export default class TasksPlugin extends Plugin {
     }
 
     onunload() {
-        log('info', `unloading plugin "${this.manifest.name}" v${this.manifest.version}`);
+        log('info', i18n.t('main.unloadingPlugin', { name: this.manifest.name, version: this.manifest.version }));
         this.cache?.unload();
     }
 
@@ -96,6 +103,34 @@ export default class TasksPlugin extends Plugin {
             return [] as Task[];
         } else {
             return this.cache.getTasks();
+        }
+    }
+
+    /**
+     * Add {@link QueryFileDefaults} properties to the Obsidian vault's types.json file,
+     * so that they are available via auto-complete in the File Properties panel.
+     */
+    private setObsidianPropertiesTypes() {
+        // Credit: this code based on ideas...
+        // by:
+        //      @SkepticMystic
+        // in:
+        //      https://github.com/SkepticMystic/breadcrumbs/blob/d380407678ce64f5668550d270b1035bc1a767f8/src/main.ts#L47-L64
+        try {
+            // @ts-expect-error TS2339: Property metadataTypeManager does not exist on type App
+            const metadataTypeManager = this.app.metadataTypeManager;
+            const all_properties = metadataTypeManager.getAllProperties();
+
+            const defaults = new QueryFileDefaults();
+            for (const field of defaults.allPropertyNamesSorted()) {
+                const property_type = defaults.propertyType(field);
+                if (all_properties[field]?.type === property_type) {
+                    continue;
+                }
+                metadataTypeManager.setType(field, property_type);
+            }
+        } catch (error) {
+            console.error('setObsidianPropertiesTypes error', error);
         }
     }
 }
