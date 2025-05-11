@@ -663,6 +663,15 @@ group by function task.urgency.toFixed(3)
 
 - Show the urgency to 3 decimal places, unlike the built-in "group by urgency" which uses 2.
 
+```javascript
+group by function task.urgency
+```
+
+- Show non-integer urgency values to 5 decimal places, and integer ones to 0 decimal places.
+- Sorting of groups by name has been found to be unreliable with varying numbers of decimal places.
+- So to ensure consistent sorting, Tasks will round non-integer numbers to a fixed 5 decimal places, returning the value as a string.
+- This still sorts consistently even when some of the group's values are integers.
+
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
 ### Recurrence
@@ -825,6 +834,19 @@ group by function task.originalMarkdown.replace(/^[^\[\]]+\[.\] */, '')
 
 - An alternative to formatting the markdown line as code is to remove everything up to the end of the checkbox.
 - Then render the rest of the task line as normal markdown.
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+### Line Number
+
+There is no built-in instruction to group by the task's line number.
+
+Since Tasks 7.16.0, **[[Custom Grouping|custom grouping]] by the task's line number** is now possible, using `task.lineNumber`.
+
+> [!tip]
+> With `task.lineNumber`, the first line in the file is on line number `0` (zero), not `1` (one).
+
+<!-- placeholder to force blank line before included text --><!-- include: CustomGroupingExamples.test.other_properties_task.lineNumber_docs.approved.md -->
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 

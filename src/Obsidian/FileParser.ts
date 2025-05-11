@@ -119,7 +119,7 @@ export class FileParser {
         sectionIndex: number,
     ) {
         if (listItem.task === undefined) {
-            this.createListItem(listItem, line, lineNumber);
+            this.createListItem(listItem, line, lineNumber, taskLocation);
             return sectionIndex;
         }
         let task;
@@ -149,7 +149,7 @@ export class FileParser {
                 }
             } else {
                 // Treat tasks without the global filter as list items
-                this.createListItem(listItem, line, lineNumber);
+                this.createListItem(listItem, line, lineNumber, taskLocation);
             }
         } catch (e) {
             this.errorReporter(e, this.filePath, listItem, line);
@@ -157,8 +157,16 @@ export class FileParser {
         return sectionIndex;
     }
 
-    private createListItem(listItem: ListItemCache, line: string, lineNumber: number) {
-        const parentListItem: ListItem | null = this.line2ListItem.get(listItem.parent) ?? null;
-        this.line2ListItem.set(lineNumber, new ListItem(line, parentListItem));
+    private createListItem(listItem: ListItemCache, line: string, lineNumber: number, taskLocation: TaskLocation) {
+        const parentListItem = this.line2ListItem.get(listItem.parent) ?? null;
+        const newListItem = ListItem.fromListItemLine(line, parentListItem, taskLocation);
+        if (newListItem === null) {
+            // This should be unreachable.
+            this.logger.warn(
+                'Unexpected failure to create a list item from line: ' + line + ' in file: ' + this.filePath,
+            );
+            return;
+        }
+        this.line2ListItem.set(lineNumber, newListItem);
     }
 }

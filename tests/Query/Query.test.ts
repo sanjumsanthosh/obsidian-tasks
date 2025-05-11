@@ -105,6 +105,24 @@ function isInvalidQueryInstructionLowerAndUpper(
 }
 
 describe('Query parsing', () => {
+    it('should proved access to the parsed statements', () => {
+        const source = `
+description includes Simple Line
+
+{{'description includes' + ' from a Placeholder'}}
+
+description includes \
+    from a Continuation Line
+        `;
+        const query = new Query(source, new TasksFile('test.md'));
+        expect(query.error).toBeUndefined();
+        const statements = query.statements;
+        expect(statements.length).toEqual(3);
+        expect(statements[0].anyPlaceholdersExpanded).toEqual('description includes Simple Line');
+        expect(statements[1].anyPlaceholdersExpanded).toEqual('description includes from a Placeholder');
+        expect(statements[2].anyPlaceholdersExpanded).toEqual('description includes     from a Continuation Line');
+    });
+
     // In alphabetical order, please
     const filters: ReadonlyArray<string> = [
         // NEW_QUERY_INSTRUCTION_EDIT_REQUIRED
@@ -738,7 +756,6 @@ Problem statement:
             const query = new Query(source);
 
             // Assert
-            expect(query).not.toBeValid();
             expect(query.error).toEqual(
                 'The query looks like it contains a placeholder, with "{{" and "}}"\n' +
                     'but no file path has been supplied, so cannot expand placeholder values.\n' +
@@ -757,7 +774,6 @@ Problem statement:
             const query = new Query(source, tasksFile);
 
             // Assert
-            expect(query).not.toBeValid();
             expect(query.error).toEqual(
                 'There was an error expanding one or more placeholders.\n' +
                     '\n' +
@@ -767,6 +783,19 @@ Problem statement:
                     'The problem is in:\n' +
                     '    path includes {{query.file.noSuchProperty}}',
             );
+            expect(query.filters.length).toEqual(0);
+        });
+
+        it('should not report error if comment contains a non-existent placeholder', () => {
+            // Arrange
+            const source = '  #  path includes {{query.file.noSuchProperty}}';
+            const tasksFile = new TasksFile('a/b/path with space.md');
+
+            // Act
+            const query = new Query(source, tasksFile);
+
+            // Assert
+            expect(query.error).toBeUndefined();
             expect(query.filters.length).toEqual(0);
         });
 
@@ -781,7 +810,6 @@ Problem statement:
             const query = new Query(source, tasksFile);
 
             // Assert
-            expect(query).not.toBeValid();
             expect(query.error).toEqual(
                 'There was an error expanding one or more placeholders.\n' +
                     '\n' +
@@ -858,20 +886,48 @@ group by folder
                 `);
             });
 
-            it('does not work with continuation lines in multi-line property with query.file.property via placeholder', () => {
+            it('should work with continuation lines in multi-line property with query.file.property via placeholder', () => {
                 const propertyValue = `path \\
   includes query_using_properties
 `;
                 const query = makeQueryFromPropertyWithValue('task_instructions_with_continuation_line', propertyValue);
 
-                expect(query.error).not.toBeUndefined();
-                expect(query.error).toMatchInlineSnapshot(`
-                    "do not understand query
-                    Problem statement:
-                        {{query.file.property('task_instructions_with_continuation_line')}}: statement 1 after expansion of placeholder =>
-                        path \\
+                expect(query.error).toBeUndefined();
+                expect(query.explainQuery()).toMatchInlineSnapshot(`
+                    "{{query.file.property('task_instructions_with_continuation_line')}} =>
+                    path includes query_using_properties
                     "
                 `);
+            });
+
+            it('visualise the guard against undefined query properties in placeholders', () => {
+                const source = "{{query.file.property('no_such_property')}}";
+                const query = new Query(source, file);
+
+                expect(query.error).not.toBeUndefined();
+                expect(query.error).toMatchInlineSnapshot(`
+                    "There was an error expanding one or more placeholders.
+
+                    The error message was:
+                        Invalid placeholder result 'null'.
+                        Check for missing file property in this expression:
+                            {{query.file.property('no_such_property')}}
+
+                    The problem is in:
+                        {{query.file.property('no_such_property')}}"
+                `);
+            });
+
+            it('visualise using "??" nullish coalescing to guard against undefined query properties in placeholders', () => {
+                // In a real use of this, if the property was not set, we would insert a blank line.
+                // But here, we need to supply something that is visible for testing.
+                const defaultInstructionIfNotSet = 'path includes property not set';
+
+                const source = `{{query.file.property('extra_line') ?? '${defaultInstructionIfNotSet}'}}`;
+                const query = new Query(source, file);
+
+                expect(query.error).toBeUndefined();
+                expect(query.statements[0].anyPlaceholdersExpanded).toEqual(defaultInstructionIfNotSet);
             });
         });
 

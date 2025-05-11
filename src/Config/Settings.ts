@@ -59,8 +59,10 @@ export const TASK_FORMATS = {
 } as const;
 
 export type TASK_FORMATS = typeof TASK_FORMATS; // For convenience to make some typing easier
+export type IncludesMap = Record<string, string>;
 
 export interface Settings {
+    includes: IncludesMap;
     globalQuery: string;
     globalFilter: string;
     removeGlobalFilter: boolean;
@@ -77,6 +79,7 @@ export interface Settings {
     filenameAsScheduledDateFormat: string;
     filenameAsDateFolders: string[];
     recurrenceOnNextLine: boolean;
+    removeScheduledDateOnRecurrence: boolean;
 
     // The custom status states.
     statusSettings: StatusSettings;
@@ -96,6 +99,7 @@ export interface Settings {
 }
 
 const defaultSettings: Settings = {
+    includes: {},
     globalQuery: '',
     globalFilter: '',
     removeGlobalFilter: false,
@@ -112,6 +116,7 @@ const defaultSettings: Settings = {
     filenameAsScheduledDateFormat: '',
     filenameAsDateFolders: [],
     recurrenceOnNextLine: false,
+    removeScheduledDateOnRecurrence: false,
     statusSettings: new StatusSettings(),
     features: Feature.settingsFlags,
     generalSettings: {

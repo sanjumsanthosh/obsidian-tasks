@@ -7,13 +7,20 @@ import type { StatusCollection } from '../Statuses/StatusCollection';
 import { createStatusRegistryReport } from '../Statuses/StatusRegistryReport';
 import { i18n } from '../i18n/i18n';
 import * as Themes from './Themes';
-import { type HeadingState, TASK_FORMATS } from './Settings';
-import { getSettings, isFeatureEnabled, updateGeneralSetting, updateSettings } from './Settings';
+import {
+    type HeadingState,
+    TASK_FORMATS,
+    getSettings,
+    isFeatureEnabled,
+    updateGeneralSetting,
+    updateSettings,
+} from './Settings';
 import { GlobalFilter } from './GlobalFilter';
 import { StatusSettings } from './StatusSettings';
 
 import { CustomStatusModal } from './CustomStatusModal';
 import { GlobalQuery } from './GlobalQuery';
+import { IncludesSettingsUI } from './IncludesSettingsUI';
 
 export class SettingsTab extends PluginSettingTab {
     // If the UI needs a more complex setting you can create a
@@ -25,11 +32,13 @@ export class SettingsTab extends PluginSettingTab {
     };
 
     private readonly plugin: TasksPlugin;
+    private readonly includesSettingsUI;
 
     constructor({ plugin }: { plugin: TasksPlugin }) {
         super(plugin.app, plugin);
 
         this.plugin = plugin;
+        this.includesSettingsUI = new IncludesSettingsUI(plugin);
     }
 
     private static createFragmentWithHTML = (html: string) =>
@@ -145,6 +154,16 @@ export class SettingsTab extends PluginSettingTab {
                         });
                 }),
         );
+
+        // ---------------------------------------------------------------------------
+        new Setting(containerEl)
+            .setName('Includes')
+            .setHeading()
+            .setDesc(
+                'You can define named instructions here, that you can re-use in multiple queries. They can be used with "{{includes.name}}" and "include name".',
+            );
+        // ---------------------------------------------------------------------------
+        this.includesSettingsUI.renderIncludesSettings(containerEl);
 
         // ---------------------------------------------------------------------------
         new Setting(containerEl).setName(i18n.t('settings.statuses.heading')).setHeading();
@@ -372,6 +391,25 @@ export class SettingsTab extends PluginSettingTab {
                 const { recurrenceOnNextLine: recurrenceOnNextLine } = getSettings();
                 toggle.setValue(recurrenceOnNextLine).onChange(async (value) => {
                     updateSettings({ recurrenceOnNextLine: value });
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(containerEl)
+            .setName(i18n.t('settings.recurringTasks.removeScheduledDate.name'))
+            .setDesc(
+                SettingsTab.createFragmentWithHTML(
+                    i18n.t('settings.recurringTasks.removeScheduledDate.description.line1') +
+                        '</br>' +
+                        i18n.t('settings.recurringTasks.removeScheduledDate.description.line2') +
+                        '</br>' +
+                        this.seeTheDocumentation('https://publish.obsidian.md/tasks/Getting+Started/Recurring+Tasks'),
+                ),
+            )
+            .addToggle((toggle) => {
+                const { removeScheduledDateOnRecurrence } = getSettings();
+                toggle.setValue(removeScheduledDateOnRecurrence).onChange(async (value) => {
+                    updateSettings({ removeScheduledDateOnRecurrence: value });
                     await this.plugin.saveSettings();
                 });
             });
@@ -605,7 +643,6 @@ export class SettingsTab extends PluginSettingTab {
                 .filter((folder) => folder !== '')
         );
     }
-
     private static renderFolderArray(folders: string[]): string {
         return folders.join(',');
     }

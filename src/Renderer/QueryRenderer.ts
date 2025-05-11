@@ -22,6 +22,13 @@ import { type BacklinksEventHandler, type EditButtonClickHandler, QueryResultsRe
 import { createAndAppendElement } from './TaskLineRenderer';
 import { Settings } from 'Config/Settings';
 
+/**
+ * `QueryRenderer` is responsible for rendering queries in Markdown code blocks
+ * annotated with the 'tasks' processor.
+ *
+ * It manages the initialization of query rendering related tasks, processing metadata,
+ * and adding rendered content to the DOM.
+ */
 export class QueryRenderer {
     private readonly app: App;
     private readonly plugin: TasksPlugin;
@@ -34,7 +41,11 @@ export class QueryRenderer {
         this.events = events;
         this.settings = settings;
 
-        plugin.registerMarkdownCodeBlockProcessor('tasks', this._addQueryRenderChild.bind(this));
+        plugin.registerMarkdownCodeBlockProcessor('tasks', (source, el, ctx) => {
+            plugin.app.workspace.onLayoutReady(() => {
+                this.addQueryRenderChild(source, el, ctx);
+            });
+        });
     }
 
     public addQueryRenderChild = this._addQueryRenderChild.bind(this);
@@ -68,6 +79,15 @@ export class QueryRenderer {
     }
 }
 
+/**
+ * A class that extends {@link MarkdownRenderChild} to render query results dynamically in Obsidian.
+ *
+ * This class listens to various Obsidian events such as metadata updates, cache changes, and
+ * file renames, and re-renders query results when relevant data changes. It supports dynamic
+ * updates, including reloading query results at midnight to ensure accurate relative date queries.
+ *
+ * The generation of HTML to render task lines is done by {@link QueryResultsRenderer}.
+ */
 class QueryRenderChild extends MarkdownRenderChild {
     private readonly app: App;
     private readonly plugin: TasksPlugin;
@@ -75,6 +95,9 @@ class QueryRenderChild extends MarkdownRenderChild {
 
     private renderEventRef: EventRef | undefined;
     private queryReloadTimeout: NodeJS.Timeout | undefined;
+
+    private isCacheChangedSinceLastRedraw = false;
+    private observer: IntersectionObserver | null = null;
 
     private readonly queryResultsRenderer: QueryResultsRenderer;
 
@@ -137,7 +160,11 @@ class QueryRenderChild extends MarkdownRenderChild {
         );
 
         this.registerEvent(
-            this.app.vault.on('rename', (tFile: TAbstractFile, _oldPath: string) => {
+            this.app.vault.on('rename', (tFile: TAbstractFile, oldPath: string) => {
+                if (oldPath !== this.queryResultsRenderer.filePath) {
+                    return;
+                }
+
                 let fileCache: CachedMetadata | null = null;
                 if (tFile && tFile instanceof TFile) {
                     fileCache = this.app.metadataCache.getFileCache(tFile);
@@ -145,6 +172,38 @@ class QueryRenderChild extends MarkdownRenderChild {
                 this.handleMetadataOrFilePathChange(tFile.path, fileCache);
             }),
         );
+
+        this.setupVisibilityObserver();
+    }
+
+    private setupVisibilityObserver() {
+        if (this.observer) {
+            return;
+        }
+
+        this.observer = new IntersectionObserver(([entry]) => {
+            if (!this.containerEl.isShown()) {
+                return;
+            }
+
+            // entry describes a single visibility change for the specific element we are observing.
+            // It is safe to assume `entry.target === this.containerEl` here.
+            if (!entry.isIntersecting) {
+                return;
+            }
+
+            this.queryResultsRenderer.query.debug(
+                `[render][observer] Became visible, isCacheChangedSinceLastRedraw:${this.isCacheChangedSinceLastRedraw}`,
+            );
+            if (this.isCacheChangedSinceLastRedraw) {
+                this.queryResultsRenderer.query.debug('[render][observer] ... updating search results');
+                this.render({ tasks: this.plugin.getTasks(), state: this.plugin.getState() })
+                    .then()
+                    .catch((e) => console.error(e));
+            }
+        });
+
+        this.observer.observe(this.containerEl);
     }
 
     private handleMetadataOrFilePathChange(filePath: string, fileCache: CachedMetadata | null) {
@@ -172,6 +231,9 @@ class QueryRenderChild extends MarkdownRenderChild {
         if (this.queryReloadTimeout !== undefined) {
             clearTimeout(this.queryReloadTimeout);
         }
+
+        this.observer?.disconnect();
+        this.observer = null;
     }
 
     /**
@@ -202,6 +264,42 @@ class QueryRenderChild extends MarkdownRenderChild {
     }
 
     private async render({ tasks, state }: { tasks: Task[]; state: State }) {
+        // We got here because the Cache reported a change in at least one task in the vault.
+        // So note that any results we have already drawn are now out-of-date:
+        this.isCacheChangedSinceLastRedraw = true;
+
+        requestAnimationFrame(async () => {
+            // We have to wrap the rendering inside requestAnimationFrame() to ensure
+            // that we get correct values for isConnected and isShown().
+            if (!this.containerEl.isConnected) {
+                // Example reasons why we might not be "connected":
+                // - This Tasks query block is contained within another plugin's code block,
+                //   such as a Tabs plugin. The file is closed and that plugin has not correctly
+                //   tidied up, so we have not been deleted.
+                this.queryResultsRenderer.query.debug(
+                    '[render] Ignoring redraw request, as code block is not connected.',
+                );
+                return;
+            }
+
+            if (!this.containerEl.isShown()) {
+                // Example reasons why we might not be "shown":
+                // - We are in a collapsed callout.
+                // - We are in a note which is obscured by another note.
+                // - We are in a Tabs plugin, in a tab which is not at the front.
+                // - The user has not yet scrolled to this code block's position in the file.
+                this.queryResultsRenderer.query.debug('[render] Ignoring redraw request, as code block is not shown.');
+                return;
+            }
+
+            await this.renderResults(state, tasks);
+
+            // Our results are now up-to-date:
+            this.isCacheChangedSinceLastRedraw = false;
+        });
+    }
+
+    private async renderResults(state: State, tasks: Task[]) {
         const content = createAndAppendElement('div', this.containerEl);
         await this.queryResultsRenderer.render(state, tasks, content, {
             allTasks: this.plugin.getTasks(),

@@ -8,13 +8,14 @@ import { expandPlaceholders } from '../Scripting/ExpandPlaceholders';
 import { makeQueryContext } from '../Scripting/QueryContext';
 import type { Task } from '../Task/Task';
 import type { OptionalTasksFile } from '../Scripting/TasksFile';
+import { unknownIncludeErrorMessage } from '../Scripting/Includes';
 import { Explainer } from './Explain/Explainer';
 import type { Filter } from './Filter/Filter';
 import * as FilterParser from './FilterParser';
 import type { Grouper } from './Group/Grouper';
 import { TaskGroups } from './Group/TaskGroups';
 import { QueryResult } from './QueryResult';
-import { continueLines } from './Scanner';
+import { continueLines, splitSourceHonouringLineContinuations } from './Scanner';
 import { SearchInfo } from './SearchInfo';
 import { Sort } from './Sort/Sort';
 import type { Sorter } from './Sort/Sorter';
@@ -25,12 +26,20 @@ let queryInstanceCounter = 0;
 export class Query implements IQuery {
     /** Note: source is the raw source, before expanding any placeholders */
     public readonly source: string;
+
+    /** statements contain each source line after processing continuations and placeholders.
+     * There may be more statements than lines in the source, if any multi-line query file property values were used. */
+    public readonly statements: Statement[] = [];
+
     public readonly tasksFile: OptionalTasksFile;
 
     private _limit: number | undefined = undefined;
     private _taskGroupLimit: number | undefined = undefined;
+
     private readonly _taskLayoutOptions: TaskLayoutOptions = new TaskLayoutOptions();
     private readonly _queryLayoutOptions: QueryLayoutOptions = new QueryLayoutOptions();
+    public readonly layoutStatements: Statement[] = [];
+
     private readonly _filters: Filter[] = [];
     private _error: string | undefined = undefined;
     private readonly _sorting: Sorter[] = [];
@@ -50,6 +59,7 @@ export class Query implements IQuery {
     private readonly limitRegexp = /^limit (groups )?(to )?(\d+)( tasks?)?/i;
 
     private readonly commentRegexp = /^#.*/;
+    private readonly includeRegexp = /^include +(.*)/i;
 
     constructor(source: string, tasksFile: OptionalTasksFile = undefined) {
         this._queryId = this.generateQueryId(10);
@@ -59,17 +69,16 @@ export class Query implements IQuery {
 
         const anyContinuationLinesRemoved = continueLines(source);
 
-        const anyPlaceholdersExpanded: Statement[] = [];
         for (const statement of anyContinuationLinesRemoved) {
             const expandedStatements = this.expandPlaceholders(statement, tasksFile);
             if (this.error !== undefined) {
                 // There was an error expanding placeholders.
                 return;
             }
-            anyPlaceholdersExpanded.push(...expandedStatements);
+            this.statements.push(...expandedStatements);
         }
 
-        for (const statement of anyPlaceholdersExpanded) {
+        for (const statement of this.statements) {
             try {
                 this.parseLine(statement);
                 if (this.error !== undefined) {
@@ -89,6 +98,16 @@ export class Query implements IQuery {
         }
     }
 
+    /**
+     * Remove any instructions that are not valid for Global Queries:
+     */
+    public removeIllegalGlobalQueryInstructions() {
+        // It does not make sense to use 'ignore global query'
+        // in global queries: the value is ignored, and it would be confusing
+        // for 'explain' output to report that it had been supplied:
+        this._ignoreGlobalQuery = false;
+    }
+
     public get filePath(): string | undefined {
         return this.tasksFile?.path ?? undefined;
     }
@@ -100,14 +119,20 @@ export class Query implements IQuery {
     private parseLine(statement: Statement) {
         const line = statement.anyPlaceholdersExpanded;
         switch (true) {
+            case this.includeRegexp.test(line):
+                this.parseInclude(line, statement);
+                break;
             case this.shortModeRegexp.test(line):
                 this._queryLayoutOptions.shortMode = true;
+                this.saveLayoutStatement(statement);
                 break;
             case this.fullModeRegexp.test(line):
                 this._queryLayoutOptions.shortMode = false;
+                this.saveLayoutStatement(statement);
                 break;
             case this.explainQueryRegexp.test(line):
                 this._queryLayoutOptions.explainQuery = true;
+                // We intentionally do not explain the 'explain' statement, as it clutters up documentation.
                 break;
             case this.ignoreGlobalQueryRegexp.test(line):
                 this._ignoreGlobalQuery = true;
@@ -120,7 +145,7 @@ export class Query implements IQuery {
             case this.parseGroupBy(line, statement):
                 break;
             case this.hideOptionsRegexp.test(line):
-                this.parseHideOptions(line);
+                this.parseHideOptions(statement);
                 break;
             case this.commentRegexp.test(line):
                 // Comment lines are ignored
@@ -152,13 +177,35 @@ ${source}`;
             }
         }
 
-        // TODO Do not complain about any placeholder errors in comment lines
+        const isAComment = this.commentRegexp.test(source);
+        if (isAComment) {
+            // If it's a comment, we return the line un-changed, to avoid:
+            // 1. pointless error messages for any harmless unknown placeholders,
+            // 2. accidentally processing the second-and-subsequent lines of multi-line placeholders.
+            return [statement];
+        }
+
         // TODO Give user error info if they try and put a string in a regex search
         let expandedSource: string = source;
         if (tasksFile) {
             const queryContext = makeQueryContext(tasksFile);
+            let previousExpandedSource: string = '';
             try {
-                expandedSource = expandPlaceholders(source, queryContext);
+                // Keep expanding placeholders until no more changes occur or max iterations reached.
+                const maxIterations = 10; // Prevent infinite loops if there are any circular references.
+                let iterations = 0;
+
+                while (expandedSource !== previousExpandedSource && iterations < maxIterations) {
+                    previousExpandedSource = expandedSource;
+                    expandedSource = expandPlaceholders(previousExpandedSource, queryContext);
+                    iterations++;
+                }
+
+                if (expandedSource !== source) {
+                    expandedSource = continueLines(expandedSource)
+                        .map((statement) => statement.anyContinuationLinesRemoved)
+                        .join('\n');
+                }
             } catch (error) {
                 if (error instanceof Error) {
                     this._error = error.message;
@@ -337,7 +384,8 @@ ${statement.explainStatement('    ')}
         }
     }
 
-    private parseHideOptions(line: string): void {
+    private parseHideOptions(statement: Statement): void {
+        const line = statement.anyPlaceholdersExpanded;
         const hideOptionsMatch = line.match(this.hideOptionsRegexp);
         if (hideOptionsMatch === null) {
             return;
@@ -346,12 +394,18 @@ ${statement.explainStatement('    ')}
         const option = hideOptionsMatch[2].toLowerCase();
 
         if (parseQueryShowHideOptions(this._queryLayoutOptions, option, hide)) {
+            this.saveLayoutStatement(statement);
             return;
         }
         if (parseTaskShowHideOptions(this._taskLayoutOptions, option, !hide)) {
+            this.saveLayoutStatement(statement);
             return;
         }
         this.setError('do not understand hide/show option', new Statement(line, line));
+    }
+
+    private saveLayoutStatement(statement: Statement) {
+        this.layoutStatements.push(statement);
     }
 
     private parseFilter(line: string, statement: Statement) {
@@ -416,6 +470,35 @@ ${statement.explainStatement('    ')}
         return false;
     }
 
+    private parseInclude(line: string, statement: Statement) {
+        const include = this.includeRegexp.exec(line);
+        if (include) {
+            const includeName = include[1].trim();
+            const { includes } = getSettings();
+            const includeValue = includes[includeName];
+            if (!includeValue) {
+                this.setError(unknownIncludeErrorMessage(includeName, includes), statement);
+                return;
+            }
+
+            // Process the included text with placeholder expansion
+            const instructions = splitSourceHonouringLineContinuations(includeValue);
+            for (const instruction of instructions) {
+                const newStatement = new Statement(statement.rawInstruction, statement.anyContinuationLinesRemoved);
+                newStatement.recordExpandedPlaceholders(instruction);
+
+                // Apply placeholder expansion again if needed
+                if (instruction.includes('{{') && instruction.includes('}}') && this.tasksFile) {
+                    const queryContext = makeQueryContext(this.tasksFile);
+                    const expandedInstruction = expandPlaceholders(instruction, queryContext);
+                    newStatement.recordExpandedPlaceholders(expandedInstruction);
+                }
+
+                this.parseLine(newStatement);
+            }
+        }
+    }
+
     /**
      * Creates a unique ID for correlation of console logging.
      *
@@ -430,5 +513,9 @@ ${statement.explainStatement('    ')}
 
     public debug(message: string, objects?: any): void {
         this.logger.debugWithId(this._queryId, `"${this.filePath}": ${message}`, objects);
+    }
+
+    public warn(message: string, objects?: any): void {
+        this.logger.warnWithId(this._queryId, `"${this.filePath}": ${message}`, objects);
     }
 }

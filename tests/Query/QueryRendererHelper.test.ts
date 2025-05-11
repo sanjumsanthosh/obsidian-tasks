@@ -70,9 +70,47 @@ describe('explain', () => {
 
               description includes hello
 
-            Explanation of the query file defaults (from properties/frontmatter in the query's file):
+            Explanation of the Query File Defaults (from properties/frontmatter in the query's file):
 
               not done
+
+              short mode
+
+              show tree
+
+              show tags
+
+              show id
+
+              show depends on
+
+              show priority
+
+              show recurrence rule
+
+              show on completion
+
+              show created date
+
+              show start date
+
+              show scheduled date
+
+              show due date
+
+              show cancelled date
+
+              show done date
+
+              show urgency
+
+              show backlink
+
+              show edit button
+
+              show postpone button
+
+              show task count
 
             Explanation of this Tasks code block query:
 
@@ -110,6 +148,8 @@ describe('explain', () => {
         expect(explainResults(query.source, new GlobalFilter(), globalQuery)).toMatchInlineSnapshot(`
             "Explanation of this Tasks code block query:
 
+              ignore global query
+
               No filters supplied. All tasks will match the query.
             "
         `);
@@ -123,13 +163,36 @@ describe('explain', () => {
         expect(queryFile.property('TQ_extra_instructions')).toContain('ignore global query');
         const query = new Query(source, queryFile);
         expect(explainResults(query.source, new GlobalFilter(), globalQuery, queryFile)).toMatchInlineSnapshot(`
-            "Explanation of the query file defaults (from properties/frontmatter in the query's file):
+            "Explanation of the Query File Defaults (from properties/frontmatter in the query's file):
+
+              ignore global query
 
               description includes I came from the TQ_extra_instructions property
 
             Explanation of this Tasks code block query:
 
               description includes I came from the code block
+            "
+        `);
+    });
+
+    it('should discard "ignore global query" from explanation if present in the global query itself', () => {
+        const globalQuery = new GlobalQuery('ignore global query');
+        const querySource = 'description includes from query';
+
+        const explanation = explainResults(querySource, new GlobalFilter(), globalQuery);
+
+        // It does not make sense to put 'ignore global query' in the global query.
+        // If the user did so, we should ignore it in any explanations.
+        expect(explanation).not.toContain('ignore global query');
+        expect(explanation).toMatchInlineSnapshot(`
+            "Explanation of the global query:
+
+              No filters supplied. All tasks will match the query.
+
+            Explanation of this Tasks code block query:
+
+              description includes from query
             "
         `);
     });

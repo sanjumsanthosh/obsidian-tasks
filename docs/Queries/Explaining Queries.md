@@ -20,8 +20,7 @@ This has a number of benefits:
 - If there is a [[Global Filter|global filter]] enabled, it is included in the explanation.
   - This often explains why tasks are missing from results.
 - If there is a [[Global Query|global query]] enabled, it too is included in the explanation.
-- Any [[query file defaults]]-generated instructions are listed (since Tasks X.Y.Z).
-  - Note that `show/hide` [[layout]] are not yet shown in `explain` output, however. We are tracking this in [issue #2093](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/2093).
+- Any [[query file defaults]]-generated instructions are listed (since Tasks 7.15.0).
 - Any [[Grouping|'group by']] instructions are listed (since Tasks 5.4.0).
 - Any [[Sorting|'sort by']] instructions are listed (since Tasks 5.4.0).
 
@@ -163,6 +162,8 @@ Explanation of this Tasks code block query:
 ```
 <!-- endSnippet -->
 
+## Advanced Examples
+
 ### Global Query is displayed
 
 > [!released]
@@ -205,6 +206,61 @@ Explanation of this Tasks code block query:
     due date is between:
       2022-10-24 (Monday 24th October 2022) and
       2022-10-30 (Sunday 30th October 2022) inclusive
+```
+<!-- endSnippet -->
+
+### Query File Defaults are displayed
+
+> [!released]
+> The [[Query File Defaults]] facility was introduced in Tasks 7.15.0.
+
+> [!info]- What are Query File Defaults?
+> You can use [[Query File Defaults]] facility to modify Tasks searches, by adding certain pre-defined property value's the query file's frontmatter.
+>
+> For example, setting `TQ_short_mode` to `true` makes Tasks insert the following line at the start of the query:
+>
+> ```text
+> short mode
+> ```
+
+Consider this Markdown note:
+
+<!-- placeholder to force blank line before included text --><!-- include: DocsSamplesForExplain.test.explain_query_file_defaults_file_content.approved.md -->
+
+````text
+---
+TQ_extra_instructions: |-
+  folder includes {{query.file.folder}}
+  not done
+TQ_short_mode: true
+TQ_show_tree: true
+---
+
+```tasks
+explain
+```
+````
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+The Tasks results begin would the following:
+
+<!-- snippet: DocsSamplesForExplain.test.explain_query_file_defaults_explanation.approved.explanation.text -->
+```text
+Explanation of the Query File Defaults (from properties/frontmatter in the query's file):
+
+  folder includes {{query.file.folder}} =>
+  folder includes Test Data/
+
+  not done
+
+  short mode
+
+  show tree
+
+Explanation of this Tasks code block query:
+
+  No filters supplied. All tasks will match the query.
 ```
 <!-- endSnippet -->
 

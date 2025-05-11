@@ -21,6 +21,13 @@ import { TaskLineRenderer, type TextRenderer, createAndAppendElement } from './T
 export type BacklinksEventHandler = (ev: MouseEvent, task: Task) => Promise<void>;
 export type EditButtonClickHandler = (event: MouseEvent, task: Task, allTasks: Task[]) => void;
 
+/**
+ * Represent the parameters required for rendering a query with {@link QueryResultsRenderer}.
+ *
+ * This interface contains all the necessary properties and handlers to manage
+ * and display query results such as tasks, markdown files, and certain event handlers
+ * for user interactions, like handling backlinks and editing tasks.
+ */
 export interface QueryRendererParameters {
     allTasks: Task[];
     allMarkdownFiles: TFile[];
@@ -29,6 +36,12 @@ export interface QueryRendererParameters {
     editTaskPencilClickHandler: EditButtonClickHandler;
 }
 
+/**
+ * The `QueryResultsRenderer` class is responsible for rendering the results
+ * of a query applied to a set of tasks.
+ *
+ * It handles the construction of task groupings and the application of visual styles.
+ */
 export class QueryResultsRenderer {
     /**
      * The complete text in the instruction block, such as:
@@ -343,21 +356,16 @@ export class QueryResultsRenderer {
             return await this.addTask(taskList, taskLineRenderer, listItem, taskIndex, queryRendererParameters);
         }
 
-        return await this.addListItem(taskList, listItem);
+        return await this.addListItem(taskList, taskLineRenderer, listItem, taskIndex);
     }
 
-    private async addListItem(taskList: HTMLUListElement, listItem: ListItem) {
-        const li = createAndAppendElement('li', taskList);
-
-        const span = createAndAppendElement('span', li);
-        await this.textRenderer(
-            listItem.description,
-            span,
-            listItem.findClosestParentTask()?.path ?? '',
-            this.obsidianComponent,
-        );
-
-        return li;
+    private async addListItem(
+        taskList: HTMLUListElement,
+        taskLineRenderer: TaskLineRenderer,
+        listItem: ListItem,
+        listItemIndex: number,
+    ) {
+        return await taskLineRenderer.renderListItem(taskList, listItem, listItemIndex);
     }
 
     private async addTask(
@@ -368,7 +376,12 @@ export class QueryResultsRenderer {
         queryRendererParameters: QueryRendererParameters,
     ) {
         const isFilenameUnique = this.isFilenameUnique({ task }, queryRendererParameters.allMarkdownFiles);
-        const listItem = await taskLineRenderer.renderTaskLine(task, taskIndex, isFilenameUnique);
+        const listItem = await taskLineRenderer.renderTaskLine({
+            task,
+            taskIndex,
+            isTaskInQueryFile: this.filePath === task.path,
+            isFilenameUnique,
+        });
 
         // Remove all footnotes. They don't re-appear in another document.
         const footnotes = listItem.querySelectorAll('[data-footnote-id]');
@@ -494,7 +507,6 @@ export class QueryResultsRenderer {
             backLink.append(')');
         }
     }
-
     private addPostponeButton(listItem: HTMLElement, task: Task, shortMode: boolean) {
         const amount = this.settings.defaultDaysToSkipDue;
         const timeUnit = 'day';
