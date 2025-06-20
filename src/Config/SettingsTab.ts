@@ -6,6 +6,7 @@ import { Status } from '../Statuses/Status';
 import type { StatusCollection } from '../Statuses/StatusCollection';
 import { createStatusRegistryReport } from '../Statuses/StatusRegistryReport';
 import { i18n } from '../i18n/i18n';
+import type { TasksEvents } from '../Obsidian/TasksEvents';
 import * as Themes from './Themes';
 import {
     type HeadingState,
@@ -20,7 +21,7 @@ import { StatusSettings } from './StatusSettings';
 
 import { CustomStatusModal } from './CustomStatusModal';
 import { GlobalQuery } from './GlobalQuery';
-import { IncludesSettingsUI } from './IncludesSettingsUI';
+import { PresetsSettingsUI } from './PresetsSettingsUI';
 
 export class SettingsTab extends PluginSettingTab {
     // If the UI needs a more complex setting you can create a
@@ -32,13 +33,13 @@ export class SettingsTab extends PluginSettingTab {
     };
 
     private readonly plugin: TasksPlugin;
-    private readonly includesSettingsUI;
+    private readonly presetsSettingsUI;
 
-    constructor({ plugin }: { plugin: TasksPlugin }) {
+    constructor({ plugin, events }: { plugin: TasksPlugin; events: TasksEvents }) {
         super(plugin.app, plugin);
 
         this.plugin = plugin;
-        this.includesSettingsUI = new IncludesSettingsUI(plugin);
+        this.presetsSettingsUI = new PresetsSettingsUI(plugin, events);
     }
 
     private static createFragmentWithHTML = (html: string) =>
@@ -157,13 +158,13 @@ export class SettingsTab extends PluginSettingTab {
 
         // ---------------------------------------------------------------------------
         new Setting(containerEl)
-            .setName('Includes')
+            .setName('Presets')
             .setHeading()
             .setDesc(
-                'You can define named instructions here, that you can re-use in multiple queries. They can be used with "{{includes.name}}" and "include name".',
+                'You can define named instructions here, that you can re-use in multiple queries. They can be used with "{{preset.name}}" and "preset name".',
             );
         // ---------------------------------------------------------------------------
-        this.includesSettingsUI.renderIncludesSettings(containerEl);
+        this.presetsSettingsUI.renderPresetsSettings(containerEl);
 
         // ---------------------------------------------------------------------------
         new Setting(containerEl).setName(i18n.t('settings.statuses.heading')).setHeading();

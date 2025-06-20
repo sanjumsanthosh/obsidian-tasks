@@ -12,6 +12,7 @@ import type { SuggestionBuilder } from '../Suggestor';
 import type { LogOptions } from '../lib/logging';
 import { DataviewTaskSerializer } from '../TaskSerializer/DataviewTaskSerializer';
 import { i18n } from '../i18n/i18n';
+import type { PresetsMap } from '../Query/Presets/Presets';
 import { DebugSettings } from './DebugSettings';
 import { StatusSettings } from './StatusSettings';
 import { Feature } from './Feature';
@@ -59,10 +60,9 @@ export const TASK_FORMATS = {
 } as const;
 
 export type TASK_FORMATS = typeof TASK_FORMATS; // For convenience to make some typing easier
-export type IncludesMap = Record<string, string>;
 
 export interface Settings {
-    includes: IncludesMap;
+    presets: PresetsMap;
     globalQuery: string;
     globalFilter: string;
     removeGlobalFilter: boolean;
@@ -98,8 +98,8 @@ export interface Settings {
     loggingOptions: LogOptions;
 }
 
-const defaultSettings: Settings = {
-    includes: {},
+const defaultSettings: Readonly<Settings> = {
+    presets: {},
     globalQuery: '',
     globalFilter: '',
     removeGlobalFilter: false,
@@ -192,13 +192,17 @@ export const getSettings = (): Settings => {
 };
 
 export const updateSettings = (newSettings: Partial<Settings>): Settings => {
-    settings = { ...settings, ...newSettings };
+    // Apply migrations before updating settings
+    const migratedSettings = migrateSettings(newSettings);
+
+    settings = { ...settings, ...migratedSettings };
 
     return getSettings();
 };
 
 export const resetSettings = (): Settings => {
-    return updateSettings(defaultSettings);
+    settings = JSON.parse(JSON.stringify(defaultSettings));
+    return settings;
 };
 
 export const updateGeneralSetting = (name: string, value: string | boolean): Settings => {
@@ -247,4 +251,24 @@ export const toggleFeature = (internalName: string, enabled: boolean): FeatureFl
  */
 export function getUserSelectedTaskFormat(): TaskFormat {
     return TASK_FORMATS[getSettings().taskFormat];
+}
+
+/**
+ * Migrates old settings structure to new structure.
+ * This handles backwards compatibility when settings property names change.
+ *
+ * Note: The vault's 'data.json' file is only updated when the user opens the Tasks settings UI.
+ */
+function migrateSettings(loadedSettings: any): Partial<Settings> {
+    const migratedSettings = { ...loadedSettings };
+
+    // Migrate 'includes' to 'presets' if present
+    if ('includes' in migratedSettings && !('presets' in migratedSettings)) {
+        migratedSettings.presets = migratedSettings.includes;
+        delete migratedSettings.includes;
+    }
+
+    // Add future migrations here as needed
+
+    return migratedSettings;
 }
