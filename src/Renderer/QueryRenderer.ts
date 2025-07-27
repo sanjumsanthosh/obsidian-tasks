@@ -126,6 +126,8 @@ class QueryRenderChild extends MarkdownRenderChild {
     }) {
         super(container);
 
+        this.app = app;
+
         this.queryResultsRenderer = new QueryResultsRenderer(
             this.containerEl.className,
             source,
@@ -133,11 +135,11 @@ class QueryRenderChild extends MarkdownRenderChild {
             MarkdownRenderer.renderMarkdown,
             settings,
             this,
+            this.app,
         );
 
         this.queryResultsRenderer.query.debug('[render] QueryRenderChild.constructor() entered');
 
-        this.app = app;
         this.plugin = plugin;
         this.events = events;
 

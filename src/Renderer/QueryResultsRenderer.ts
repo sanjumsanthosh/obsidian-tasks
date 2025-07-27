@@ -1,4 +1,4 @@
-import type { Component, TFile } from 'obsidian';
+import type { App, Component, TFile } from 'obsidian';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { GlobalQuery } from '../Config/GlobalQuery';
 import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postponer';
@@ -74,9 +74,16 @@ export class QueryResultsRenderer {
         className: string,
         source: string,
         tasksFile: TasksFile,
-        renderMarkdown: (markdown: string, el: HTMLElement, sourcePath: string, component: Component) => Promise<void>,
+        renderMarkdown: (
+            app: App,
+            markdown: string,
+            el: HTMLElement,
+            sourcePath: string,
+            component: Component,
+        ) => Promise<void>,
         settings: Settings,
         obsidianComponent: Component | null,
+        obsidianApp: App,
         textRenderer: TextRenderer = TaskLineRenderer.obsidianMarkdownRenderer,
     ) {
         this.source = source;
@@ -261,6 +268,7 @@ export class QueryResultsRenderer {
 
         const taskLineRenderer = new TaskLineRenderer({
             textRenderer: this.textRenderer,
+            obsidianApp: this.obsidianApp,
             obsidianComponent: this.obsidianComponent,
             parentUlElement: taskList,
             taskLayoutOptions: this.query.taskLayoutOptions,
@@ -473,7 +481,13 @@ export class QueryResultsRenderer {
         if (this.obsidianComponent === null) {
             return;
         }
-        await this.renderMarkdown(group.displayName, headerEl, this.tasksFile.path, this.obsidianComponent);
+        await this.renderMarkdown(
+            this.obsidianApp,
+            group.displayName,
+            headerEl,
+            this.tasksFile.path,
+            this.obsidianComponent,
+        );
     }
 
     private addBacklinks(

@@ -4,6 +4,7 @@
 
 # npm
 node_modules
+.yarn
 yarn-error.log
 
 # build
@@ -58,3 +59,6 @@ local_sync.ps1
 
 # VS code config
 .vscode/
+
+# Obsidian's hot reload plugin marker file
+.hotreload

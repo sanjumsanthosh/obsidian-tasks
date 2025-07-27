@@ -20,6 +20,8 @@ import yaml_all_property_types_empty from '../Obsidian/__test_data__/yaml_all_pr
 import yaml_all_property_types_populated from '../Obsidian/__test_data__/yaml_all_property_types_populated.json';
 import yaml_1_alias from '../Obsidian/__test_data__/yaml_1_alias.json';
 import yaml_2_aliases from '../Obsidian/__test_data__/yaml_2_aliases.json';
+import links_everywhere from '../Obsidian/__test_data__/links_everywhere.json';
+import link_in_yaml from '../Obsidian/__test_data__/link_in_yaml.json';
 import { determineExpressionType, formatToRepresentType } from './ScriptingTestHelpers';
 
 describe('TasksFile', () => {
@@ -177,7 +179,9 @@ describe('TasksFile - reading frontmatter', () => {
         //      ["#journal"]
         // Obsidian 1.9.0 to 1.9.2 reads this as an empty array:
         //      []
-        expect(tasksFile.frontmatter.tags).toEqual([]);
+        // Obsidian 1.9.4 again reads this as an array:
+        //      ["#journal"]
+        expect(tasksFile.frontmatter.tags).toEqual(['#journal']);
         expect(tasksFile.frontmatter.publish).toEqual(false);
     });
 
@@ -231,6 +235,41 @@ describe('TasksFile - reading frontmatter', () => {
               "tags => string[] = ['#sample/tag/value']",
             ]
         `);
+    });
+});
+
+describe('TasksFile - accessing links', () => {
+    it('should access all links in the file - both properties and body', () => {
+        const tasksFile = getTasksFileFromMockData(links_everywhere);
+        expect(tasksFile.outlinks.length).toEqual(5);
+        expect(tasksFile.outlinks.map((link) => link.originalMarkdown)).toMatchInlineSnapshot(`
+            [
+              "[[link_in_yaml]]",
+              "[[#A link in a link_in_heading]]",
+              "[[link_in_file_body]]",
+              "[[link_in_heading]]",
+              "[[link_in_task_wikilink]]",
+            ]
+        `);
+    });
+
+    it('should access all links in the file body', () => {
+        {
+            const tasksFile = getTasksFileFromMockData(links_everywhere);
+            expect(tasksFile.outlinksInBody.length).toEqual(3);
+            expect(tasksFile.outlinksInBody[0].originalMarkdown).toEqual('[[link_in_file_body]]');
+        }
+
+        {
+            const tasksFile = getTasksFileFromMockData(link_in_yaml);
+            expect(tasksFile.outlinksInBody.length).toEqual(0);
+        }
+    });
+
+    it('should access all links in properties', () => {
+        const tasksFile = getTasksFileFromMockData(link_in_yaml);
+        expect(tasksFile.outlinksInProperties.length).toEqual(1);
+        expect(tasksFile.outlinksInProperties[0].originalMarkdown).toEqual('[[yaml_tags_is_empty]]');
     });
 });
 

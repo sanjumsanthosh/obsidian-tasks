@@ -12,7 +12,7 @@ import type { SuggestionBuilder } from '../Suggestor';
 import type { LogOptions } from '../lib/logging';
 import { DataviewTaskSerializer } from '../TaskSerializer/DataviewTaskSerializer';
 import { i18n } from '../i18n/i18n';
-import type { PresetsMap } from '../Query/Presets/Presets';
+import { type PresetsMap, defaultPresets } from '../Query/Presets/Presets';
 import { DebugSettings } from './DebugSettings';
 import { StatusSettings } from './StatusSettings';
 import { Feature } from './Feature';
@@ -99,7 +99,7 @@ export interface Settings {
 }
 
 const defaultSettings: Readonly<Settings> = {
-    presets: {},
+    presets: defaultPresets,
     globalQuery: '',
     globalFilter: '',
     removeGlobalFilter: false,

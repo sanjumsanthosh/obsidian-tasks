@@ -1,4 +1,5 @@
 import { type CachedMetadata, type FrontMatterCache, getAllTags, parseFrontMatterTags } from 'obsidian';
+import { Link } from '../Task/Link';
 
 export type OptionalTasksFile = TasksFile | undefined;
 
@@ -47,6 +48,27 @@ export class TasksFile {
      */
     get tags(): string[] {
         return this._tags;
+    }
+
+    /**
+     * Return an array of {@link Link} all the links in the file - both in frontmatter and in the file body.
+     */
+    get outlinks(): Link[] {
+        return [...this.outlinksInProperties, ...this.outlinksInBody];
+    }
+
+    /**
+     * Return an array of {@link Link} in the file's properties/frontmatter.
+     */
+    get outlinksInProperties(): Link[] {
+        return this.cachedMetadata.frontmatterLinks?.map((link) => new Link(link, this.path)) ?? [];
+    }
+
+    /**
+     * Return an array of {@link Link} in the body of the file.
+     */
+    get outlinksInBody(): Link[] {
+        return this.cachedMetadata?.links?.map((link) => new Link(link, this.path)) ?? [];
     }
 
     /**
