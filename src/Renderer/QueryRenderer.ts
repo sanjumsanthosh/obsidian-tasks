@@ -132,7 +132,7 @@ class QueryRenderChild extends MarkdownRenderChild {
             this.containerEl.className,
             source,
             tasksFile,
-            MarkdownRenderer.renderMarkdown,
+            (app, markdown, el, sourcePath, component) => MarkdownRenderer.renderMarkdown(markdown, el, sourcePath, component),
             settings,
             this,
             this.app,

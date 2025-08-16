@@ -69,6 +69,7 @@ export class QueryResultsRenderer {
     private readonly renderMarkdown;
     private readonly obsidianComponent: Component | null;
     private readonly settings: Settings;
+    private readonly obsidianApp: App;
 
     constructor(
         className: string,
@@ -92,6 +93,7 @@ export class QueryResultsRenderer {
         this.obsidianComponent = obsidianComponent;
         this.settings = settings;
         this.textRenderer = textRenderer;
+        this.obsidianApp = obsidianApp;
 
         // The engine is chosen on the basis of the code block language. Currently,
         // there is only the main engine for the plugin, this allows others to be
