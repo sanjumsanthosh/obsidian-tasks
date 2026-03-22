@@ -249,7 +249,7 @@ group by function task.due.fromNow.groupText
 ```
 
 - Group by the [time from now](https://momentjs.com/docs/#/displaying/fromnow/), for example `8 days ago`, `in 11 hours`.
-- It users an empty string (so no heading) if there is no due date.
+- It uses an empty string (so no heading) if there is no due date.
 - The values `task.due.fromNow.name` and `task.due.fromNow.sortOrder` are also available.
 
 ```javascript
@@ -663,6 +663,15 @@ group by function task.urgency.toFixed(3)
 
 - Show the urgency to 3 decimal places, unlike the built-in "group by urgency" which uses 2.
 
+```javascript
+group by function task.urgency
+```
+
+- Show non-integer urgency values to 5 decimal places, and integer ones to 0 decimal places.
+- Sorting of groups by name has been found to be unreliable with varying numbers of decimal places.
+- So to ensure consistent sorting, Tasks will round non-integer numbers to a fixed 5 decimal places, returning the value as a string.
+- This still sorts consistently even when some of the group's values are integers.
+
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
 ### Recurrence
@@ -828,6 +837,19 @@ group by function task.originalMarkdown.replace(/^[^\[\]]+\[.\] */, '')
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
+### Line Number
+
+There is no built-in instruction to group by the task's line number.
+
+Since Tasks 7.16.0, **[[Custom Grouping|custom grouping]] by the task's line number** is now possible, using `task.lineNumber`.
+
+> [!tip]
+> With `task.lineNumber`, the first line in the file is on line number `0` (zero), not `1` (one).
+
+<!-- placeholder to force blank line before included text --><!-- include: CustomGroupingExamples.test.other_properties_task.lineNumber_docs.approved.md -->
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
 ## Group by File Properties
 
 ### File Path
@@ -842,7 +864,7 @@ Since Tasks 4.0.0, **[[Custom Grouping|custom grouping]] by file path** is now p
 group by function task.file.path
 ```
 
-- Like 'group by path' but includes the file extension.
+- Like 'group by path' but includes the file extension, and does not escape any Markdown formatting characters in the path.
 
 ```javascript
 group by function task.file.path.replace(query.file.folder, '')
@@ -875,7 +897,7 @@ Since Tasks 4.0.0, **[[Custom Grouping|custom grouping]] by root folder** is now
 group by function task.file.root
 ```
 
-- Same as 'group by root'.
+- Like 'group by root' except that it does not escape any Markdown formatting characters in the root.
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
@@ -896,7 +918,7 @@ Since Tasks 4.0.0, **[[Custom Grouping|custom grouping]] by folder** is now poss
 group by function task.file.folder
 ```
 
-- Same as 'group by folder'.
+- Like 'group by folder', except that it does not escape any Markdown formatting characters in the folder.
 
 ```javascript
 group by function task.file.folder.slice(0, -1).split('/').pop() + '/'

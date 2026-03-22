@@ -1,13 +1,15 @@
 import { GlobalFilter } from '../Config/GlobalFilter';
-import { parseTypedDateForSaving } from '../lib/DateTools';
+import { parseTypedDateForSaving } from '../DateTime/DateTools';
+import { PriorityTools } from '../lib/PriorityTools';
 import { replaceTaskWithTasks } from '../Obsidian/File';
 import type { Status } from '../Statuses/Status';
+import type { OnCompletion } from '../Task/OnCompletion';
+import { Occurrence } from '../Task/Occurrence';
 import { Priority } from '../Task/Priority';
 import { Recurrence } from '../Task/Recurrence';
 import { Task } from '../Task/Task';
 import { addDependencyToParent, ensureTaskHasId, generateUniqueId, removeDependency } from '../Task/TaskDependency';
-
-type EditableTaskPriority = 'none' | 'lowest' | 'low' | 'medium' | 'high' | 'highest';
+import { StatusType } from '../Statuses/StatusConfiguration';
 
 /**
  * {@link Task} objects are immutable. This class allows to create a mutable object from a {@link Task}, apply the edits,
@@ -21,8 +23,9 @@ export class EditableTask {
     // NEW_TASK_FIELD_EDIT_REQUIRED
     description: string;
     status: Status;
-    priority: 'none' | 'lowest' | 'low' | 'medium' | 'high' | 'highest';
+    priority: string;
     recurrenceRule: string;
+    onCompletion: OnCompletion;
     createdDate: string;
     startDate: string;
     scheduledDate: string;
@@ -40,7 +43,8 @@ export class EditableTask {
         // NEW_TASK_FIELD_EDIT_REQUIRED
         description: string;
         status: Status;
-        priority: EditableTaskPriority;
+        priority: string;
+        onCompletion: OnCompletion;
         recurrenceRule: string;
         createdDate: string;
         startDate: string;
@@ -58,6 +62,7 @@ export class EditableTask {
         this.description = editableTask.description;
         this.status = editableTask.status;
         this.priority = editableTask.priority;
+        this.onCompletion = editableTask.onCompletion;
         this.recurrenceRule = editableTask.recurrenceRule;
         this.createdDate = editableTask.createdDate;
         this.startDate = editableTask.startDate;
@@ -84,7 +89,7 @@ export class EditableTask {
         const addGlobalFilterOnSave =
             description != task.description || !GlobalFilter.getInstance().includedIn(task.description);
 
-        let priority: EditableTaskPriority = 'none';
+        let priority = 'none';
         if (task.priority === Priority.Lowest) {
             priority = 'lowest';
         } else if (task.priority === Priority.Low) {
@@ -118,6 +123,7 @@ export class EditableTask {
             status: task.status,
             priority,
             recurrenceRule: task.recurrence ? task.recurrence.toText() : '',
+            onCompletion: task.onCompletion,
             createdDate: task.created.formatAsDate(),
             startDate: task.start.formatAsDate(),
             scheduledDate: task.scheduled.formatAsDate(),
@@ -157,32 +163,11 @@ export class EditableTask {
         if (this.recurrenceRule) {
             recurrence = Recurrence.fromText({
                 recurrenceRuleText: this.recurrenceRule,
-                startDate,
-                scheduledDate,
-                dueDate,
+                occurrence: new Occurrence({ startDate, scheduledDate, dueDate }),
             });
         }
 
-        let parsedPriority: Priority;
-        switch (this.priority) {
-            case 'lowest':
-                parsedPriority = Priority.Lowest;
-                break;
-            case 'low':
-                parsedPriority = Priority.Low;
-                break;
-            case 'medium':
-                parsedPriority = Priority.Medium;
-                break;
-            case 'high':
-                parsedPriority = Priority.High;
-                break;
-            case 'highest':
-                parsedPriority = Priority.Highest;
-                break;
-            default:
-                parsedPriority = Priority.None;
-        }
+        const parsedOnCompletion: OnCompletion = this.onCompletion;
 
         const blockedByWithIds = [];
 
@@ -211,7 +196,8 @@ export class EditableTask {
             ...task,
             description,
             status: task.status,
-            priority: parsedPriority,
+            priority: PriorityTools.priorityValue(this.priority),
+            onCompletion: parsedOnCompletion,
             recurrence,
             startDate,
             scheduledDate,
@@ -235,10 +221,38 @@ export class EditableTask {
 
         // Then apply the new status to the updated task, in case a new recurrence
         // needs to be created.
-        // If there is a 'done' date, use that for today's date for recurrence calculations.
-        // Otherwise, use the current date.
-        const today = doneDate ? doneDate : window.moment();
+        const today = this.inferTodaysDate(this.status.type, doneDate, cancelledDate);
         return updatedTask.handleNewStatusWithRecurrenceInUsersOrder(this.status, today);
+    }
+
+    /**
+     * If the user has manually edited the Done date or Cancelled date in the modal,
+     * we need to tell Tasks to use a different `today` value in the status-editing code.
+     * Here we calculate that inferred date.
+     */
+    private inferTodaysDate(
+        newStatusType: StatusType,
+        doneDate: moment.Moment | null,
+        cancelledDate: moment.Moment | null,
+    ) {
+        if (newStatusType === StatusType.DONE && doneDate !== null) {
+            // The status type of the edited task is DONE, so we need to preserve the
+            // Done Date value in the modal as today's date,
+            // for use in later code.
+            // This is needed for scenarios including:
+            //  - The task already had a done date before being edited
+            //  - The user changed the status to Done, and then edited the machine-generted done date.
+            return doneDate;
+        }
+
+        if (newStatusType === StatusType.CANCELLED && cancelledDate !== null) {
+            // The status type of the edited task is CANCELLED, so we need to preserve the
+            // Cancelled Date value in the modal as today's date.
+            return cancelledDate;
+        }
+
+        // Otherwise, use the current date.
+        return window.moment();
     }
 
     public parseAndValidateRecurrence() {
@@ -250,9 +264,7 @@ export class EditableTask {
         const recurrenceFromText = Recurrence.fromText({
             recurrenceRuleText: this.recurrenceRule,
             // Only for representation in the modal, no dates required.
-            startDate: null,
-            scheduledDate: null,
-            dueDate: null,
+            occurrence: new Occurrence({ startDate: null, scheduledDate: null, dueDate: null }),
         })?.toText();
 
         if (!recurrenceFromText) {

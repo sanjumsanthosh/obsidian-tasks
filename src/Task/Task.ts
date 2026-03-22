@@ -3,20 +3,21 @@ import { getSettings, getUserSelectedTaskFormat } from '../Config/Settings';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { StatusRegistry } from '../Statuses/StatusRegistry';
 import type { Status } from '../Statuses/Status';
-import { compareByDate } from '../lib/DateTools';
-import { TasksDate } from '../Scripting/TasksDate';
+import { compareByDate } from '../DateTime/DateTools';
+import { TasksDate } from '../DateTime/TasksDate';
 import { StatusType } from '../Statuses/StatusConfiguration';
-import type { TasksFile } from '../Scripting/TasksFile';
 import { PriorityTools } from '../lib/PriorityTools';
 import { logging } from '../lib/logging';
 import { logEndOfTaskEdit, logStartOfTaskEdit } from '../lib/LogTasksHelper';
-import { DateFallback } from './DateFallback';
+import { DateFallback } from '../DateTime/DateFallback';
 import { ListItem } from './ListItem';
+import type { Occurrence } from './Occurrence';
 import { Urgency } from './Urgency';
 import type { Recurrence } from './Recurrence';
 import type { TaskLocation } from './TaskLocation';
 import type { Priority } from './Priority';
 import { TaskRegularExpressions } from './TaskRegularExpressions';
+import { OnCompletion, handleOnCompletion } from './OnCompletion';
 
 /**
  * Storage for the task line, broken down in to sections.
@@ -35,17 +36,11 @@ interface TaskComponents {
  * the extensions provided by this plugin. This is used to parse and
  * generate the markdown task for all updates and replacements.
  *
- * @export
  * @class Task
  */
 export class Task extends ListItem {
     // NEW_TASK_FIELD_EDIT_REQUIRED
     public readonly status: Status;
-    public readonly description: string;
-    public readonly indentation: string;
-    public readonly listMarker: string;
-
-    public readonly taskLocation: TaskLocation;
 
     public readonly tags: string[];
 
@@ -59,6 +54,7 @@ export class Task extends ListItem {
     public readonly cancelledDate: Moment | null;
 
     public readonly recurrence: Recurrence | null;
+    public readonly onCompletion: OnCompletion;
 
     public readonly dependsOn: string[];
     public readonly id: string;
@@ -86,6 +82,7 @@ export class Task extends ListItem {
         doneDate,
         cancelledDate,
         recurrence,
+        onCompletion,
         dependsOn,
         id,
         blockLink,
@@ -108,6 +105,7 @@ export class Task extends ListItem {
         doneDate: moment.Moment | null;
         cancelledDate: moment.Moment | null;
         recurrence: Recurrence | null;
+        onCompletion: OnCompletion;
         dependsOn: string[] | [];
         id: string;
         blockLink: string;
@@ -116,13 +114,17 @@ export class Task extends ListItem {
         scheduledDateIsInferred: boolean;
         parent?: ListItem | null;
     }) {
-        super(originalMarkdown, parent);
+        super({
+            originalMarkdown,
+            indentation,
+            listMarker,
+            statusCharacter: status.symbol,
+            description,
+            taskLocation,
+            parent,
+        });
         // NEW_TASK_FIELD_EDIT_REQUIRED
         this.status = status;
-        this.description = description;
-        this.indentation = indentation;
-        this.listMarker = listMarker;
-        this.taskLocation = taskLocation;
 
         this.tags = tags;
 
@@ -136,6 +138,7 @@ export class Task extends ListItem {
         this.cancelledDate = cancelledDate;
 
         this.recurrence = recurrence;
+        this.onCompletion = onCompletion;
 
         this.dependsOn = dependsOn;
         this.id = id;
@@ -159,8 +162,8 @@ export class Task extends ListItem {
      * @param {TaskLocation} taskLocation - The location of the task line
      * @param {(Moment | null)} fallbackDate - The date to use as the scheduled date if no other date is set
      * @return {*}  {(Task | null)}
-     * @memberof Task
      * @see parseTaskSignifiers
+     * @see ListItem.fromListItemLine
      */
     public static fromLine({
         line,
@@ -274,7 +277,6 @@ export class Task extends ListItem {
      *
      * @note Output depends on {@link Settings.taskFormat}
      * @return {*}  {string}
-     * @memberof Task
      */
     public toString(): string {
         return getUserSelectedTaskFormat().taskSerializer.serialize(this);
@@ -285,7 +287,6 @@ export class Task extends ListItem {
      *
      * @note Output depends on {@link Settings.taskFormat}
      * @return {*}  {string}
-     * @memberof Task
      */
     public toFileLineString(): string {
         return `${this.indentation}${this.listMarker} [${this.status.symbol}] ${this.toString()}`;
@@ -360,17 +361,6 @@ export class Task extends ListItem {
             today,
         );
 
-        let nextOccurrence: {
-            startDate: Moment | null;
-            scheduledDate: Moment | null;
-            dueDate: Moment | null;
-        } | null = null;
-        if (newStatus.isCompleted()) {
-            if (!this.status.isCompleted() && this.recurrence !== null) {
-                nextOccurrence = this.recurrence.next(today);
-            }
-        }
-
         const toggledTask = new Task({
             ...this,
             status: newStatus,
@@ -378,17 +368,23 @@ export class Task extends ListItem {
             cancelledDate: newCancelledDate,
         });
 
-        const newTasks: Task[] = [];
+        const newStatusIsNotDone = !newStatus.isCompleted();
+        const oldStatusWasDone = this.status.isCompleted();
+        const noRecurrenceRule = this.recurrence === null;
 
-        if (nextOccurrence !== null) {
-            const nextTask = this.createNextOccurrence(newStatus, nextOccurrence);
-            newTasks.push(nextTask);
+        const noNewRecurrence = newStatusIsNotDone || oldStatusWasDone || noRecurrenceRule;
+        if (noNewRecurrence) {
+            return [toggledTask];
         }
 
-        // Write next occurrence before previous occurrence.
-        newTasks.push(toggledTask);
+        const nextOccurrence = this.recurrence.next(today);
+        if (nextOccurrence === null) {
+            return [toggledTask];
+        }
 
-        return newTasks;
+        const nextTask = this.createNextOccurrence(newStatus, nextOccurrence);
+        // Write next occurrence before previous occurrence.
+        return [nextTask, toggledTask];
     }
 
     /**
@@ -419,14 +415,7 @@ export class Task extends ListItem {
         return newDate;
     }
 
-    private createNextOccurrence(
-        newStatus: Status,
-        nextOccurrence: {
-            startDate: moment.Moment | null;
-            scheduledDate: moment.Moment | null;
-            dueDate: moment.Moment | null;
-        },
-    ) {
+    private createNextOccurrence(newStatus: Status, nextOccurrence: Occurrence) {
         const { setCreatedDate } = getSettings();
         let createdDate: moment.Moment | null = null;
         if (setCreatedDate) {
@@ -493,8 +482,18 @@ export class Task extends ListItem {
     }
 
     private putRecurrenceInUsersOrder(newTasks: Task[]) {
+        const potentiallyPrunedTasks = handleOnCompletion(this, newTasks);
         const { recurrenceOnNextLine } = getSettings();
-        return recurrenceOnNextLine ? newTasks.reverse() : newTasks;
+        return recurrenceOnNextLine ? potentiallyPrunedTasks.reverse() : potentiallyPrunedTasks;
+    }
+
+    /**
+     * Return whether this object is a {@link Task}.
+     *
+     * This is useful at run-time to discover whether a {@link ListItem} reference is in fact a {@link Task}.
+     */
+    get isTask() {
+        return true;
     }
 
     /**
@@ -619,10 +618,6 @@ export class Task extends ListItem {
         return this._urgency;
     }
 
-    public get path(): string {
-        return this.taskLocation.path;
-    }
-
     /**
      * Return {@link cancelledDate} as a {@link TasksDate}, so the field names in scripting docs are consistent with the existing search instruction names, and null values are easy to deal with.
      */
@@ -729,38 +724,6 @@ export class Task extends ListItem {
         return this.precedingHeader !== null;
     }
 
-    public get file(): TasksFile {
-        return this.taskLocation.tasksFile;
-    }
-
-    /**
-     * Return the name of the file containing the task, with the .md extension removed.
-     */
-    public get filename(): string | null {
-        const fileNameMatch = this.path.match(/([^/]+)\.md$/);
-        if (fileNameMatch !== null) {
-            return fileNameMatch[1];
-        } else {
-            return null;
-        }
-    }
-
-    get lineNumber(): number {
-        return this.taskLocation.lineNumber;
-    }
-
-    get sectionStart(): number {
-        return this.taskLocation.sectionStart;
-    }
-
-    get sectionIndex(): number {
-        return this.taskLocation.sectionIndex;
-    }
-
-    public get precedingHeader(): string | null {
-        return this.taskLocation.precedingHeader;
-    }
-
     /**
      * Returns the text that should be displayed to the user when linking to the origin of the task
      *
@@ -790,26 +753,6 @@ export class Task extends ListItem {
     }
 
     /**
-     * Compare two lists of Task objects, and report whether their
-     * tasks are identical in the same order.
-     *
-     * This can be useful for optimising code if it is guaranteed that
-     * there are no possible differences in the tasks in a file
-     * after an edit, for example.
-     *
-     * If any field is different in any task, it will return false.
-     *
-     * @param oldTasks
-     * @param newTasks
-     */
-    static tasksListsIdentical(oldTasks: Task[], newTasks: Task[]): boolean {
-        if (oldTasks.length !== newTasks.length) {
-            return false;
-        }
-        return oldTasks.every((oldTask, index) => oldTask.identicalTo(newTasks[index]));
-    }
-
-    /**
      * Compare all the fields in another Task, to detect any differences from this one.
      *
      * If any field is different in any way, it will return false.
@@ -821,6 +764,11 @@ export class Task extends ListItem {
      * @param other
      */
     public identicalTo(other: Task) {
+        // First compare child Task and ListItem objects, and any other data in ListItem:
+        if (!super.identicalTo(other)) {
+            return false;
+        }
+
         // NEW_TASK_FIELD_EDIT_REQUIRED
 
         // Based on ideas from koala. AquaCat and javalent in Discord:
@@ -831,19 +779,12 @@ export class Task extends ListItem {
         //       any of the tasks in a file. This does mean that redrawing of tasks blocks
         //       happens more often than is ideal.
         let args: Array<keyof Task> = [
-            'description',
-            'path',
-            'indentation',
-            'listMarker',
-            'lineNumber',
-            'sectionStart',
-            'sectionIndex',
-            'precedingHeader',
             'priority',
             'blockLink',
             'scheduledDateIsInferred',
             'id',
             'dependsOn',
+            'onCompletion',
         ];
         for (const el of args) {
             if (this[el]?.toString() !== other[el]?.toString()) return false;
@@ -875,20 +816,31 @@ export class Task extends ListItem {
                 return false;
             }
         }
+        if (!this.recurrenceIdenticalTo(other)) {
+            return false;
+        }
 
+        return this.file.rawFrontmatterIdenticalTo(other.file);
+    }
+
+    private recurrenceIdenticalTo(other: Task) {
         const recurrence1 = this.recurrence;
         const recurrence2 = other.recurrence;
         if (recurrence1 === null && recurrence2 !== null) {
             return false;
-        } else if (recurrence1 !== null && recurrence2 === null) {
-            return false;
-        } else if (recurrence1 && recurrence2 && !recurrence1.identicalTo(recurrence2)) {
+        }
+        if (recurrence1 !== null && recurrence2 === null) {
             return false;
         }
-
+        if (recurrence1 && recurrence2 && !recurrence1.identicalTo(recurrence2)) {
+            return false;
+        }
         return true;
     }
 
+    /**
+     * See also {@link AllTaskDateFields}
+     */
     public static allDateFields(): (keyof Task)[] {
         return [
             'createdDate' as keyof Task,

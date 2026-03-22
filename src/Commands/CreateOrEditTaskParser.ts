@@ -1,7 +1,8 @@
 import { TasksFile } from '../Scripting/TasksFile';
 import { Status } from '../Statuses/Status';
+import { OnCompletion } from '../Task/OnCompletion';
 import { Task } from '../Task/Task';
-import { DateFallback } from '../Task/DateFallback';
+import { DateFallback } from '../DateTime/DateFallback';
 import { StatusRegistry } from '../Statuses/StatusRegistry';
 import { TaskLocation } from '../Task/TaskLocation';
 import { getSettings } from '../Config/Settings';
@@ -92,6 +93,7 @@ export const taskFromLine = ({ line, path }: { line: string; path: string }): Ta
             doneDate: null,
             cancelledDate: null,
             recurrence: null,
+            onCompletion: OnCompletion.Ignore,
             dependsOn: [],
             id: '',
             blockLink: '',
@@ -132,6 +134,7 @@ export const taskFromLine = ({ line, path }: { line: string; path: string }): Ta
         doneDate: null,
         cancelledDate: null,
         recurrence: null,
+        onCompletion: OnCompletion.Ignore,
         tags: [],
         originalMarkdown: '',
         // Not needed since the inferred status is always re-computed after submitting.

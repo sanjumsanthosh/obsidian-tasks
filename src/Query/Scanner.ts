@@ -69,7 +69,15 @@ export function continueLines(input: string): Statement[] {
 
     let currentStatementRaw = '';
     let currentStatementProcessed = '';
-    for (const inputLine of input.split('\n')) {
+
+    // See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3137.
+    //      Issue #3137 revealed that if the last line of the query ended in
+    //      a backslash, this function returned without saved the final
+    //      instruction.
+    //      The simplest way to prevent this is to add an extra end-of-line
+    //      to the end of the query, which will get ignored when not needed:
+    const inputWithGuaranteedFinalEOL = input + '\n';
+    for (const inputLine of inputWithGuaranteedFinalEOL.split('\n')) {
         const adjustedLine = adjustLine(inputLine, continuePreviousLine);
         if (continuePreviousLine) {
             currentStatementRaw += '\n' + inputLine;
@@ -105,6 +113,6 @@ export function continueLines(input: string): Statement[] {
  * @param input Input string
  * @returns List of statements
  */
-export function scan(input: string): string[] {
+export function splitSourceHonouringLineContinuations(input: string): string[] {
     return continueLines(input).map((instruction: Statement) => instruction.anyContinuationLinesRemoved);
 }

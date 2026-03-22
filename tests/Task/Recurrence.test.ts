@@ -2,8 +2,10 @@
  * @jest-environment jsdom
  */
 import moment from 'moment';
+import { Occurrence } from '../../src/Task/Occurrence';
 import { Recurrence } from '../../src/Task/Recurrence';
 import { RecurrenceBuilder } from '../TestingTools/RecurrenceBuilder';
+import { updateSettings } from '../../src/Config/Settings';
 
 window.moment = moment;
 
@@ -12,29 +14,24 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every week',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: null,
+            occurrence: new Occurrence({}),
         });
 
         // Act
         const next = recurrence!.next();
 
         // Assert
-        expect(next).toStrictEqual({
-            startDate: null,
-            scheduledDate: null,
-            dueDate: null,
-        });
+        const nullOccurrence = new Occurrence({ startDate: null, scheduledDate: null, dueDate: null });
+        expect(next).toStrictEqual(nullOccurrence);
     });
 
     it('creates a recurrence the next month, even on the 31st', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every month',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2022-01-31').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2022-01-31').startOf('day'),
+            }),
         });
 
         // Act
@@ -50,9 +47,9 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every 3 months',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2022-01-31').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2022-01-31').startOf('day'),
+            }),
         });
 
         // Act
@@ -68,9 +65,9 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every 2 months',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2023-12-31').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2023-12-31').startOf('day'),
+            }),
         });
 
         // Act
@@ -86,9 +83,9 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every 2 years',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2024-02-29').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2024-02-29').startOf('day'),
+            }),
         });
 
         // Act
@@ -104,9 +101,9 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every 11 months',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2020-03-31').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2020-03-31').startOf('day'),
+            }),
         });
 
         // Act
@@ -122,9 +119,9 @@ describe('Recurrence', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every 13 months',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2020-01-31').startOf('day'),
+            occurrence: new Occurrence({
+                dueDate: moment('2020-01-31').startOf('day'),
+            }),
         });
 
         // Act
@@ -144,9 +141,9 @@ describe('Recurrence - with invalid dates in tasks', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every day',
-            startDate: null,
-            scheduledDate: null,
-            dueDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
+            occurrence: new Occurrence({
+                dueDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
+            }),
         });
 
         // Assert
@@ -164,9 +161,10 @@ describe('Recurrence - with invalid dates in tasks', () => {
         // Arrange
         const recurrence = Recurrence.fromText({
             recurrenceRuleText: 'every day',
-            startDate: null,
-            scheduledDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
-            dueDate: moment('2022-02-27').startOf('day'),
+            occurrence: new Occurrence({
+                scheduledDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
+                dueDate: moment('2022-02-27').startOf('day'),
+            }),
         });
 
         // Act
@@ -229,5 +227,88 @@ describe('identicalTo', () => {
 
         expect(date1Recurrence?.identicalTo(date1Recurrence)).toBe(true);
         expect(date1Recurrence?.identicalTo(date2Recurrence)).toBe(false);
+    });
+});
+
+describe('Recurrence - with removeScheduledDateOnRecurrence', () => {
+    beforeEach(() => {
+        updateSettings({ removeScheduledDateOnRecurrence: true });
+    });
+
+    afterEach(() => {
+        updateSettings({ removeScheduledDateOnRecurrence: false });
+    });
+
+    it('should remove the scheduledDate when removeScheduledDate is true', () => {
+        // Arrange
+        const recurrence = Recurrence.fromText({
+            recurrenceRuleText: 'every month',
+            occurrence: new Occurrence({
+                startDate: moment('2022-01-01').startOf('day'),
+                scheduledDate: moment('2022-01-04').startOf('day'),
+                dueDate: moment('2022-01-10').startOf('day'),
+            }),
+        });
+
+        // Act
+        const next = recurrence!.next();
+
+        // Assert
+        expect(next!.startDate).toEqualMoment(moment('2022-02-01'));
+        expect(next!.scheduledDate).toBeNull();
+        expect(next!.dueDate).toEqualMoment(moment('2022-02-10'));
+    });
+
+    it('should not remove the scheduledDate when it is the only date', () => {
+        // Arrange
+        const recurrence = Recurrence.fromText({
+            recurrenceRuleText: 'every month',
+            occurrence: new Occurrence({
+                scheduledDate: moment('2022-01-04').startOf('day'),
+            }),
+        });
+
+        // Act
+        const next = recurrence!.next();
+
+        // Assert
+        expect(next!.scheduledDate).not.toBeNull();
+    });
+
+    describe('dropScheduledDate and when done', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date('2022-01-10'));
+        });
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it.failing('calculates correct start date with "dropScheduledDate" and "when done", with no due date', () => {
+            // Arrange
+
+            // The task is being completed on the 10th of January.
+            // And the user has turned on the setting to remove the scheduled date in the new instance.
+            // This means that the user will apply a scheduled date at some point in the future,
+            // when they are ready to work on the task.
+            // Therefore, in the new task, as there is no Due date, the only date the user will see
+            // is the Start date.
+            // And so it makes sense to calculate the new 'happens' date using the Start date,
+            // not the old scheduled date.
+            const recurrence = Recurrence.fromText({
+                recurrenceRuleText: 'every 3 days when done',
+                occurrence: new Occurrence({
+                    startDate: moment('2022-01-01').startOf('day'),
+                    scheduledDate: moment('2022-01-04').startOf('day'),
+                }),
+            });
+
+            // Act
+            const next = recurrence!.next();
+
+            // Assert
+            expect(next!.startDate).toEqualMoment(moment('2022-01-13'));
+            expect(next!.scheduledDate).toBeNull();
+        });
     });
 });

@@ -3,87 +3,43 @@
  */
 import moment from 'moment/moment';
 import type { CachedMetadata } from 'obsidian';
-import { logging } from '../../src/lib/logging';
-import { getTasksFromFileContent2 } from '../../src/Obsidian/Cache';
+import { GlobalFilter } from '../../src/Config/GlobalFilter';
 import type { ListItem } from '../../src/Task/ListItem';
-import { inheritance_1parent1child } from './__test_data__/inheritance_1parent1child';
-import { inheritance_1parent1child1newroot_after_header } from './__test_data__/inheritance_1parent1child1newroot_after_header';
-import { inheritance_1parent1child1sibling_emptystring } from './__test_data__/inheritance_1parent1child1sibling_emptystring';
-import { inheritance_1parent2children } from './__test_data__/inheritance_1parent2children';
-import { inheritance_1parent2children1grandchild } from './__test_data__/inheritance_1parent2children1grandchild';
-import { inheritance_1parent2children1sibling } from './__test_data__/inheritance_1parent2children1sibling';
-import { inheritance_1parent2children2grandchildren } from './__test_data__/inheritance_1parent2children2grandchildren';
-import { inheritance_1parent2children2grandchildren1sibling } from './__test_data__/inheritance_1parent2children2grandchildren1sibling';
-import { inheritance_1parent2children2grandchildren1sibling_start_with_heading } from './__test_data__/inheritance_1parent2children2grandchildren1sibling_start_with_heading';
-import { inheritance_2siblings } from './__test_data__/inheritance_2siblings';
-import { inheritance_listitem_task } from './__test_data__/inheritance_listitem_task';
-import { inheritance_listitem_task_siblings } from './__test_data__/inheritance_listitem_task_siblings';
-import { inheritance_task_2listitem_3task } from './__test_data__/inheritance_task_2listitem_3task';
-import { inheritance_task_listitem } from './__test_data__/inheritance_task_listitem';
-import { inheritance_task_listitem_mixed_grandchildren } from './__test_data__/inheritance_task_listitem_mixed_grandchildren';
-import { inheritance_task_listitem_task } from './__test_data__/inheritance_task_listitem_task';
-import { inheritance_task_mixed_children } from './__test_data__/inheritance_task_mixed_children';
-import { one_task } from './__test_data__/one_task';
-import { callouts_nested_issue_2890_labelled } from './__test_data__/callouts_nested_issue_2890_labelled';
-import { callout } from './__test_data__/callout';
-import { callout_labelled } from './__test_data__/callout_labelled';
-import { callout_custom } from './__test_data__/callout_custom';
-import { callouts_nested_issue_2890_unlabelled } from './__test_data__/callouts_nested_issue_2890_unlabelled';
+import { getTasksFileFromMockData, listPathAndData } from '../TestingTools/MockDataHelpers';
+import inheritance_1parent1child from './__test_data__/inheritance_1parent1child.json';
+import inheritance_1parent1child1newroot_after_header from './__test_data__/inheritance_1parent1child1newroot_after_header.json';
+import inheritance_1parent1child1sibling_emptystring from './__test_data__/inheritance_1parent1child1sibling_emptystring.json';
+import inheritance_1parent2children from './__test_data__/inheritance_1parent2children.json';
+import inheritance_1parent2children1grandchild from './__test_data__/inheritance_1parent2children1grandchild.json';
+import inheritance_1parent2children1sibling from './__test_data__/inheritance_1parent2children1sibling.json';
+import inheritance_1parent2children2grandchildren from './__test_data__/inheritance_1parent2children2grandchildren.json';
+import inheritance_1parent2children2grandchildren1sibling from './__test_data__/inheritance_1parent2children2grandchildren1sibling.json';
+import inheritance_1parent2children2grandchildren1sibling_start_with_heading from './__test_data__/inheritance_1parent2children2grandchildren1sibling_start_with_heading.json';
+import inheritance_2roots_listitem_listitem_task from './__test_data__/inheritance_2roots_listitem_listitem_task.json';
+import inheritance_2siblings from './__test_data__/inheritance_2siblings.json';
+import inheritance_listitem_listitem_task from './__test_data__/inheritance_listitem_listitem_task.json';
+import inheritance_listitem_task from './__test_data__/inheritance_listitem_task.json';
+import inheritance_listitem_task_siblings from './__test_data__/inheritance_listitem_task_siblings.json';
+import inheritance_non_task_child from './__test_data__/inheritance_non_task_child.json';
+import inheritance_task_2listitem_3task from './__test_data__/inheritance_task_2listitem_3task.json';
+import inheritance_task_listitem from './__test_data__/inheritance_task_listitem.json';
+import inheritance_task_listitem_mixed_grandchildren from './__test_data__/inheritance_task_listitem_mixed_grandchildren.json';
+import inheritance_task_listitem_task from './__test_data__/inheritance_task_listitem_task.json';
+import inheritance_task_mixed_children from './__test_data__/inheritance_task_mixed_children.json';
+import numbered_list_items_with_paren from './__test_data__/numbered_list_items_with_paren.json';
+import numbered_list_items_standard from './__test_data__/numbered_list_items_standard.json';
+import numbered_tasks_issue_3481 from './__test_data__/numbered_tasks_issue_3481.json';
+import one_task from './__test_data__/one_task.json';
+import callouts_nested_issue_2890_labelled from './__test_data__/callouts_nested_issue_2890_labelled.json';
+import callout from './__test_data__/callout.json';
+import callout_labelled from './__test_data__/callout_labelled.json';
+import callout_custom from './__test_data__/callout_custom.json';
+import callouts_nested_issue_2890_unlabelled from './__test_data__/callouts_nested_issue_2890_unlabelled.json';
+import links_everywhere from './__test_data__/links_everywhere.json';
+import { allCacheSampleData } from './AllCacheSampleData';
+import { type SimulatedFile, readTasksFromSimulatedFile } from './SimulatedFile';
 
 window.moment = moment;
-
-function errorReporter() {
-    return;
-}
-
-/* Test creation sequence:
-
-If using this on an Obsidian version newer than the one in saved tests/Obsidian/__test_data__/*.ts
-go to Settings → Files and links → Advanced → Rebuild vault cache.
-
-- Create a sample markdown file in Tasks demo vault (root/Test Data/) with the simplest content
-to represent your test case. Choose a meaningful file name in snake case. See example in 'Test Data/one_task.md'.
-
-    - There is a Templater template that may help with creating a new file, for single-tasks cases:
-      `resources/sample_vaults/Tasks-Demo/_meta/templates/Test Data file.md`
-
-- Open any other note in the vault, just so that Templater will run.
-
-    - The Templater plugin requires a note to be open. The script won't edit the file, so it
-      doesn't matter which file you have open.
-
-- Run the command 'Templater: Insert _meta/templates/convert_test_data_markdown_to_js.md'
-    - Or type the short-cut 'Ctrl + Cmd + Alt + T' / 'Ctrl + Ctrl + Alt + T'
-
-- This will convert all the files 'root/Test Data/*.md' to test functions in 'tests/Obsidian/__test_data__/*.ts'
-
-- Run 'yarn lint:test-data' to standardise the formatting in the generated TypeScript files.
-
-- Use the data in the test with `readTasksFromSimulatedFile()`, the argument is the constant you
-created in the previous step.
-
-- Remember to commit the markdown file in the demo vault and the file with the simulated data.
-
-TODO: Make the order of values in the generated code stable.
- */
-
-interface SimulatedFile {
-    cachedMetadata: CachedMetadata;
-    filePath: string;
-    fileContents: string;
-}
-
-function readTasksFromSimulatedFile(testData: SimulatedFile) {
-    const logger = logging.getLogger('testCache');
-    return getTasksFromFileContent2(
-        testData.filePath,
-        testData.fileContents,
-        testData.cachedMetadata.listItems!,
-        logger,
-        testData.cachedMetadata,
-        errorReporter,
-    );
-}
 
 function testRootAndChildren(root: ListItem, children: ListItem[]) {
     expect(root.parent).toEqual(null);
@@ -130,16 +86,23 @@ function printHierarchy(listItem: ListItem, depth: number): string {
  * @param listItems
  */
 function printRoots(listItems: ListItem[]) {
-    let rootHierarchies = '';
-
+    const roots: ListItem[] = [];
     for (const listItem of listItems) {
-        if (listItem.parent === null) {
-            rootHierarchies += printHierarchy(listItem, 0);
+        if (!roots.includes(listItem.root)) {
+            roots.push(listItem.root);
         }
     }
 
+    let rootHierarchies = '';
+    roots.forEach((root) => {
+        rootHierarchies += printHierarchy(root, 0);
+    });
     return rootHierarchies;
 }
+
+afterEach(() => {
+    GlobalFilter.getInstance().reset();
+});
 
 describe('cache', () => {
     it('should read one task', () => {
@@ -162,6 +125,99 @@ describe('cache', () => {
 
         testRootAndChildren(sibling1, []);
         testRootAndChildren(sibling2, []);
+    });
+
+    it('should read numbered list items with dot', () => {
+        const data = numbered_list_items_standard;
+        const tasks = readTasksFromSimulatedFile(data);
+        expect(data.fileContents).toMatchInlineSnapshot(`
+            "# numbered_list_items_standard
+
+            1. [ ] #task Task 1 in 'numbered_list_items_standard'
+                1. Sub-item 1
+            2. [ ] #task Task 2 in 'numbered_list_items_standard'
+                1. Sub-item 2
+            3. List item in 'numbered_list_items_standard'
+            "
+        `);
+        expect(tasks[0].file.cachedMetadata.listItems?.length).toEqual(5);
+
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "1. [ ] #task Task 1 in 'numbered_list_items_standard' : Task
+                1. Sub-item 1 : ListItem
+            2. [ ] #task Task 2 in 'numbered_list_items_standard' : Task
+                1. Sub-item 2 : ListItem
+            "
+        `);
+        expect(tasks.length).toEqual(2);
+    });
+
+    it('should read numbered list items with closing parenthesis', () => {
+        // See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3401
+        //      "Unexpected failure to create a list item from line" warning when parsing "1)" style numbered list
+        const data = numbered_list_items_with_paren;
+        const tasks = readTasksFromSimulatedFile(data);
+        expect(data.fileContents).toMatchInlineSnapshot(`
+            "# numbered_list_items_with_paren
+
+            1) [ ] #task Task 1 in 'numbered_list_items_with_paren'
+                1) Sub-item 1
+            2) [ ] #task Task 2 in 'numbered_list_items_with_paren'
+                1) Sub-item 2
+            3) List item in 'numbered_list_items_with_paren'
+            "
+        `);
+
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "1) [ ] #task Task 1 in 'numbered_list_items_with_paren' : Task
+                1) Sub-item 1 : ListItem
+            2) [ ] #task Task 2 in 'numbered_list_items_with_paren' : Task
+                1) Sub-item 2 : ListItem
+            "
+        `);
+        expect(tasks.length).toEqual(2);
+    });
+
+    it('visualise how Tasks handles sample tasks in issue #3481', () => {
+        // This test name does not yet begin 'should', because it is only documenting/visualsing
+        // the current behaviour - and not stating that the current behaviour is correct.
+
+        // See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3481
+        //      "Tasks query turns single-line tasks into multi-line tasks"
+        const data = numbered_tasks_issue_3481;
+        const tasks = readTasksFromSimulatedFile(data);
+        expect(data.fileContents).toMatchInlineSnapshot(`
+            "# numbered_tasks_issue_3481
+
+            See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3481.
+
+            - [ ] 1. #task Task 1 in 'numbered_tasks_issue_3481'
+            - [ ] 2 #task Task 2 in 'numbered_tasks_issue_3481'
+            - [ ] 3) #task Task 3 in 'numbered_tasks_issue_3481'
+            - [ ] 4 - #task Task 4 in 'numbered_tasks_issue_3481'
+            - [ ] 5: #task Task 5 in 'numbered_tasks_issue_3481'
+            - [ ] (6) #task Task 6 in 'numbered_tasks_issue_3481'
+
+            The file [[numbered_tasks_issue_3481_searches]] shows how Obsidian and some plugins parse the above data.
+            "
+        `);
+
+        // This shows the current behaviour of the Tasks code for processing Obsidian listItems.
+        // The two nested ListItem lines are not expected.
+        // But reviewing the listItems values in numbered_tasks_issue_3481.json, it is plausible
+        // to see why Tasks might have created them.
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "- [ ] 1. #task Task 1 in 'numbered_tasks_issue_3481' : Task
+                - [ ] 1. #task Task 1 in 'numbered_tasks_issue_3481' : ListItem
+            - [ ] 2 #task Task 2 in 'numbered_tasks_issue_3481' : Task
+            - [ ] 3) #task Task 3 in 'numbered_tasks_issue_3481' : Task
+                - [ ] 3) #task Task 3 in 'numbered_tasks_issue_3481' : ListItem
+            - [ ] 4 - #task Task 4 in 'numbered_tasks_issue_3481' : Task
+            - [ ] 5: #task Task 5 in 'numbered_tasks_issue_3481' : Task
+            - [ ] (6) #task Task 6 in 'numbered_tasks_issue_3481' : Task
+            "
+        `);
+        expect(tasks.length).toEqual(6);
     });
 
     it('should read one parent and one child task', () => {
@@ -370,7 +426,53 @@ describe('cache', () => {
         expect(tasks.length).toEqual(1);
 
         expect(printRoots(tasks)).toMatchInlineSnapshot(`
-            "- [ ] child task : Task
+            "- parent list item : ListItem
+                - [ ] child task : Task
+            "
+        `);
+    });
+
+    it('should read grandchild task under parent and child listItem', () => {
+        const tasks = readTasksFromSimulatedFile(inheritance_listitem_listitem_task);
+        expect(inheritance_listitem_listitem_task.fileContents).toMatchInlineSnapshot(`
+            "- parent list item
+                - child list item
+                    - [ ] grandchild task
+            "
+        `);
+
+        expect(tasks.length).toEqual(1);
+
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "- parent list item : ListItem
+                - child list item : ListItem
+                    - [ ] grandchild task : Task
+            "
+        `);
+    });
+
+    it('should read 2 roots with grandchild task under parent and child listItem', () => {
+        const tasks = readTasksFromSimulatedFile(inheritance_2roots_listitem_listitem_task);
+        expect(inheritance_2roots_listitem_listitem_task.fileContents).toMatchInlineSnapshot(`
+            "- parent list item 1
+                - child list item 1
+                    - [ ] grandchild task 1
+
+            - parent list item 2
+                - child list item 2
+                    - [ ] grandchild task 2
+            "
+        `);
+
+        expect(tasks.length).toEqual(2);
+
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "- parent list item 1 : ListItem
+                - child list item 1 : ListItem
+                    - [ ] grandchild task 1 : Task
+            - parent list item 2 : ListItem
+                - child list item 2 : ListItem
+                    - [ ] grandchild task 2 : Task
             "
         `);
     });
@@ -478,6 +580,43 @@ describe('cache', () => {
                     - grandchild list item 2 : ListItem
             "
         `);
+    });
+
+    it('should read non task check box when global filter is enabled', () => {
+        GlobalFilter.getInstance().set('#task');
+
+        const data = inheritance_non_task_child;
+        const tasks = readTasksFromSimulatedFile(data);
+        expect(data.fileContents).toMatchInlineSnapshot(`
+            "-  [ ] #task task parent
+                - [ ] #task task child
+                - [ ] non-task child
+                - [x] non-task child status x
+                - list item child
+
+            \`\`\`tasks
+            filename includes {{query.file.filename}}
+            show tree
+            \`\`\`
+            "
+        `);
+
+        expect(tasks.length).toEqual(2);
+
+        expect(printRoots(tasks)).toMatchInlineSnapshot(`
+            "-  [ ] #task task parent : Task
+                - [ ] #task task child : Task
+                - [ ] non-task child : ListItem
+                - [x] non-task child status x : ListItem
+                - list item child : ListItem
+            "
+        `);
+
+        const task = tasks[0];
+        expect(task.taskLocation.lineNumber).toEqual(0);
+        expect(task.children[0].taskLocation.lineNumber).toEqual(1);
+        expect(task.children[1].taskLocation.lineNumber).toEqual(2);
+        expect(task.children[2].taskLocation.lineNumber).toEqual(3);
     });
 
     it('callout', () => {
@@ -604,4 +743,154 @@ describe('cache', () => {
         `);
         expect(tasks.length).toEqual(4);
     });
+});
+
+describe('accessing links in file', function () {
+    describe('explore accessing links in file "links_everywhere.md"', () => {
+        const data = links_everywhere as unknown as SimulatedFile;
+
+        const tasks = readTasksFromSimulatedFile(data);
+        expect(tasks.length).toEqual(1);
+        const task = tasks[0];
+
+        const cachedMetadata: CachedMetadata = task.file.cachedMetadata;
+
+        // Usability note:
+        //    These tests are for visualising how Obsidian caches link properties.
+        //    See TasksFile and ListItem classes for accessing links via the Link class in Tasks cvode
+
+        it('see source', () => {
+            expect(data.fileContents).toMatchInlineSnapshot(`
+                "---
+                link-in-frontmatter: "[[link_in_yaml]]"
+                link-in-frontmatter-to-heading: "[[#A link in a link_in_heading]]"
+                ---
+                # links_everywhere
+
+                A link in the file body: [[link_in_file_body]]
+
+                ## A link in a [[link_in_heading]]
+
+                - [ ] #task Task in 'links_everywhere' - a link on the task: [[link_in_task_wikilink]]
+                "
+            `);
+        });
+
+        it('visualise raw links in frontmatter', () => {
+            const frontMatterLinks = cachedMetadata['frontmatterLinks'];
+            expect(frontMatterLinks).toBeDefined();
+
+            const firstFrontMatterLink = frontMatterLinks![0];
+            expect(firstFrontMatterLink.original).toEqual('[[link_in_yaml]]');
+            expect(firstFrontMatterLink).toMatchInlineSnapshot(`
+                            {
+                              "displayText": "link_in_yaml",
+                              "key": "link-in-frontmatter",
+                              "link": "link_in_yaml",
+                              "original": "[[link_in_yaml]]",
+                            }
+                    `);
+        });
+
+        it('visualise raw links in file body', () => {
+            const fileBodyLinks = cachedMetadata.links;
+
+            const originalLinkText = fileBodyLinks?.map((link) => link.original).join('\n');
+            expect(originalLinkText).toMatchInlineSnapshot(`
+                            "[[link_in_file_body]]
+                            [[link_in_heading]]
+                            [[link_in_task_wikilink]]"
+                    `);
+
+            const firstFileBodyLink = fileBodyLinks![0];
+            expect(firstFileBodyLink).toMatchInlineSnapshot(`
+                {
+                  "displayText": "link_in_file_body",
+                  "link": "link_in_file_body",
+                  "original": "[[link_in_file_body]]",
+                  "position": {
+                    "end": {
+                      "col": 46,
+                      "line": 6,
+                      "offset": 181,
+                    },
+                    "start": {
+                      "col": 25,
+                      "line": 6,
+                      "offset": 160,
+                    },
+                  },
+                }
+            `);
+        });
+
+        it('visualise raw links in task line', () => {
+            const fileBodyLinks = cachedMetadata.links;
+            const linksOnTask = fileBodyLinks?.filter((link) => link.position.start.line === task.lineNumber);
+
+            expect(linksOnTask).toBeDefined();
+            expect(linksOnTask?.length).toEqual(1);
+
+            const firstLinkOnTask = linksOnTask![0];
+            expect(firstLinkOnTask.original).toEqual('[[link_in_task_wikilink]]');
+            expect(firstLinkOnTask).toMatchInlineSnapshot(`
+                {
+                  "displayText": "link_in_task_wikilink",
+                  "link": "link_in_task_wikilink",
+                  "original": "[[link_in_task_wikilink]]",
+                  "position": {
+                    "end": {
+                      "col": 86,
+                      "line": 10,
+                      "offset": 305,
+                    },
+                    "start": {
+                      "col": 61,
+                      "line": 10,
+                      "offset": 280,
+                    },
+                  },
+                }
+            `);
+        });
+    });
+});
+
+describe('all mock files', () => {
+    const files: SimulatedFile[] = allCacheSampleData();
+
+    it.each(listPathAndData(files))(
+        'should create valid TasksFile for all mock files: "%s"',
+        (_path: string, file: SimulatedFile) => {
+            const tasksFile = getTasksFileFromMockData(file);
+
+            const frontmatter = tasksFile.frontmatter;
+            expect(frontmatter).not.toBeUndefined();
+            expect(frontmatter).not.toBeNull();
+
+            // We always define frontmatter.tags, even if there was no frontmatter,
+            // to simplify a common user operation in custom filters.
+            expect(frontmatter.tags).not.toBeUndefined();
+            expect(frontmatter.tags).not.toBeNull();
+            expect(frontmatter.tags).not.toContain(null);
+            expect(frontmatter.tags).not.toContain(undefined);
+        },
+    );
+
+    it.each(listPathAndData(files))(
+        'should be able to read tasks from all mock files: "%s"',
+        (path: string, file: any) => {
+            const tasks = readTasksFromSimulatedFile(file);
+            const files_without_tasks = [
+                'Test Data/docs_sample_for_explain_query_file_defaults.md',
+                'Test Data/non_tasks.md',
+                'Test Data/numbered_tasks_issue_3481_searches.md',
+            ];
+            if (files_without_tasks.includes(path)) {
+                expect(tasks.length).toEqual(0);
+            } else {
+                expect(tasks.length).toBeGreaterThan(0);
+            }
+        },
+    );
 });

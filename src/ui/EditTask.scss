@@ -67,7 +67,7 @@
 
 .tasks-modal-dates-section {
     display: grid;
-    grid-template-columns: 6.0em auto;
+    grid-template-columns: 6.0em 13em auto;
     column-gap: .5em;
     row-gap: 5px;
     align-items: center;
@@ -78,6 +78,10 @@
 
     .tasks-modal-date-input {
         min-width: 15em;
+    }
+
+    .tasks-modal-date-editor-picker {
+        margin-left: .5em;
     }
 
     .tasks-modal-parsed-date {

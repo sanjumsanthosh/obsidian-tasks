@@ -21,6 +21,7 @@ export type TaskDetails = Writeable<
         | 'doneDate'
         | 'cancelledDate'
         | 'recurrence'
+        | 'onCompletion'
         | 'dependsOn'
         | 'id'
         | 'tags'
@@ -41,7 +42,6 @@ export type TaskDetails = Writeable<
  *
  *        - Retrieving and setting a fallback scheduled date (done in {@link Task.fromLine})
  *
- * @exports
  * @interface TaskSerializer
  */
 export interface TaskSerializer {

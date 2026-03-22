@@ -93,7 +93,7 @@ For more information, including adding your own customised statuses, see [[Statu
     - a fixed string, such as `'no date'`,
     - an [[Expressions|expression]], such as `task.priorityName` or `task.priorityNameGroupText`,
     - an empty string `''` or `""`, meaning 'do not add a heading for tasks missing this date property'.
-1. You can see the current [TasksDate source code](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/Scripting/TasksDate.ts), to explore its implementation.
+1. You can see the current [TasksDate source code](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/DateTime/TasksDate.ts), to explore its implementation.
 1. `task.due.toISOString(true)` prevents UTC conversion - see the [moment documentation](https://momentjs.com/docs/#/displaying/as-iso-string/)
 1. `category` divides dates in to 5 named groups:
     - `Invalid date`
@@ -145,13 +145,22 @@ For more information, including adding your own customised statuses, see [[Statu
 | `task.urgency` | `number` | `3.3000000000000007` | `number` | `1.9500000000000002` |
 | `task.isRecurring` | `boolean` | `true` | `boolean` | `false` |
 | `task.recurrenceRule` | `string` | `'every day when done'` | `string` | `''` |
+| `task.onCompletion` | `string` | `'delete'` | `string` | `''` |
 | `task.tags` | `string[]` | `['#todo', '#health']` | `any[]` | `[]` |
-| `task.originalMarkdown` | `string` | `'  - [ ] Do exercises #todo #health 🆔 abcdef ⛔ 123456,abc123 🔼 🔁 every day when done ➕ 2023-07-01 🛫 2023-07-02 ⏳ 2023-07-03 📅 2023-07-04 ❌ 2023-07-06 ✅ 2023-07-05 ^dcf64c'` | `string` | `'- [/] minimal task'` |
+| `task.originalMarkdown` | `string` | `'  - [ ] Do exercises #todo #health 🆔 abcdef ⛔ 123456,abc123 🔼 🔁 every day when done 🏁 delete ➕ 2023-07-01 🛫 2023-07-02 ⏳ 2023-07-03 📅 2023-07-04 ❌ 2023-07-06 ✅ 2023-07-05 ^dcf64c'` | `string` | `'- [/] minimal task'` |
+| `task.lineNumber` | `number` | `17` | `number` | `0` |
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
 1. `task.description` has spaces at the start and end stripped off.
 1. `task.description` includes any tags.
+1. `task.priorityName` and `task.priorityNumber` values are:
+    - 'Highest': 0
+    - 'High': 1
+    - 'Medium': 2
+    - 'Normal': 3
+    - 'Low': 4
+    - 'Lowest': 5
 1. `task.priorityNameGroupText` (added in Tasks 4.9.0) is a convenient way to sort priority names in to a natural order in custom grouping functions.
 1. `task.isRecurring` is:
     - `true` if the Task has a **valid** recurrence rule,
@@ -166,6 +175,10 @@ For more information, including adding your own customised statuses, see [[Statu
     - **or** an empty string (`''`) if:
         - **either** it does not have a recurrence rule,
         - **or** the recurrence rule is invalid (such as `🔁  every seven weeks`, for example).
+1. `task.onCompletion` (added in Tasks 7.8.0) will have one of these values:
+    - `delete`
+    - `keep`
+    - `` (empty string), which is the default, when the task has no [[On Completion]] action specified.
 1. Note that if there is a [[Global Filter]] enabled in settings, and the filter is a tag, it will be removed from `task.tags`.
 
 ## Values for File Properties
@@ -192,3 +205,59 @@ For more information, including adding your own customised statuses, see [[Statu
 1. `task.file.filenameWithoutExtension` was added in Tasks 4.8.0.
 
 [^commented]: Text inside `%% ... %%` comments is hidden from view. It is used to control the order that group headings are sorted in.
+
+## Values for Obsidian Properties
+
+> [!released]
+> Access to the Obsidian Properties was introduced in Tasks 7.7.0.
+
+These are described in full in [[Obsidian Properties]].
+
+<!-- placeholder to force blank line before included text --><!-- include: TaskProperties.test.task_frontmatter_properties.approved.md -->
+
+| Field | Type 1 | Example 1 |
+| ----- | ----- | ----- |
+| `task.file.hasProperty('creation date')` | `boolean` | `true` |
+| `task.file.property('creation date')` | `string` | `'2024-05-25T15:17:00'` |
+| `task.file.property('sample_checkbox_property')` | `boolean` | `true` |
+| `task.file.property('sample_date_property')` | `string` | `'2024-07-21'` |
+| `task.file.property('sample_date_and_time_property')` | `string` | `'2024-07-21T12:37:00'` |
+| `task.file.property('sample_list_property')` | `string[]` | `['Sample', 'List', 'Value']` |
+| `task.file.property('sample_number_property')` | `number` | `246` |
+| `task.file.property('sample_text_property')` | `string` | `'Sample Text Value'` |
+| `task.file.property('sample_text_multiline_property')` | `string` | `'Sample\nText\nValue\n'` |
+| `task.file.property('sample_link_property')` | `string` | `'[[yaml_all_property_types_populated]]'` |
+| `task.file.property('sample_link_list_property')` | `string[]` | `['[[yaml_all_property_types_populated]]', '[[yaml_all_property_types_empty]]']` |
+| `task.file.property('tags')` | `string[]` | `['#tag-from-file-properties']` |
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+1. `task.file.hasProperty()` and `task.file.property()` were added in Tasks 7.7.0
+1. `task.file.hasProperty('property name')` returns true if the property `'property name'` is both present in the file and has a non-`null` value.
+1. `task.file.property('property name')` returns either the value in the file, or `null` if there is no value.
+
+## Values for Links
+
+> [!released]
+> Access to the Links was introduced in Tasks 7.21.0.
+
+These are described in full in [[Links]].
+
+<!-- placeholder to force blank line before included text --><!-- include: TaskProperties.test.task_links.approved.md -->
+
+| Field | Type 1 | Example 1 |
+| ----- | ----- | ----- |
+| `task.outlinks` | `Link[]` | `['Test Data/link_in_task_wikilink.md']` |
+| `task.file.outlinksInProperties` | `Link[]` | `['Test Data/link_in_yaml.md', 'Test Data/links_everywhere.md']` |
+| `task.file.outlinksInBody` | `Link[]` | `['Test Data/link_in_file_body.md', 'Test Data/link_in_heading.md', 'Test Data/link_in_task_wikilink.md']` |
+| `task.file.outlinks` | `Link[]` | `['Test Data/link_in_yaml.md', 'Test Data/links_everywhere.md', 'Test Data/link_in_file_body.md', 'Test Data/link_in_heading.md', 'Test Data/link_in_task_wikilink.md']` |
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+1. These all return an array of `Link` objects.
+1. The table above shows the result of `link.destinationPath`
+1. `task.outlinks` contains any links in the task description.
+    - It does not contain links in any nested tasks or list items.
+1. `task.file.outlinksInProperties` returns all the links in the task file's [[Obsidian Properties]].
+1. `task.file.outlinksInBody` returns all the links in the body of the note containing the task. Naturally, this includes any links on the task line itself.
+1. `task.file.outlinks` returns all this links in both [[Obsidian Properties]] and the body of the note containing the task.

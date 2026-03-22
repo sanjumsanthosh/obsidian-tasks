@@ -1,20 +1,27 @@
 import type { Moment } from 'moment';
-import { Component, MarkdownRenderer } from 'obsidian';
+import { type App, Component, MarkdownRenderer } from 'obsidian';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { TASK_FORMATS, getSettings } from '../Config/Settings';
 import type { QueryLayoutOptions } from '../Layout/QueryLayoutOptions';
 import { TaskLayoutComponent, type TaskLayoutOptions } from '../Layout/TaskLayoutOptions';
 import { replaceTaskWithTasks } from '../Obsidian/File';
 import { StatusRegistry } from '../Statuses/StatusRegistry';
-import type { Task } from '../Task/Task';
+import { Task } from '../Task/Task';
 import { TaskRegularExpressions } from '../Task/TaskRegularExpressions';
 import { StatusMenu } from '../ui/Menus/StatusMenu';
+import type { AllTaskDateFields } from '../DateTime/DateFieldTypes';
+import { defaultTaskSaver } from '../ui/Menus/TaskEditingMenu';
+import { promptForDate } from '../ui/Menus/DatePicker';
+import { splitDateText } from '../DateTime/Postponer';
+import { DateMenu } from '../ui/Menus/DateMenu';
+import type { ListItem } from '../Task/ListItem';
 import { TaskFieldRenderer } from './TaskFieldRenderer';
 
 /**
  * The function used to render a Markdown task line into an existing HTML element.
  */
 export type TextRenderer = (
+    app: App,
     text: string,
     element: HTMLSpanElement,
     path: string,
@@ -48,21 +55,35 @@ export function createAndAppendElement<K extends keyof HTMLElementTagNameMap>(
     return el;
 }
 
+/**
+ * `TaskLineRenderer` is responsible for rendering task details as HTML list items with
+ * various customization options.
+ *
+ * It integrates with Obsidian's rendering system and includes functionalities such as priority,
+ * due dates, and user interactions.
+ *
+ * Individual fields in {@link Task} are rendered by {@link TaskFieldRenderer}.
+ */
 export class TaskLineRenderer {
     private readonly textRenderer: TextRenderer;
+    private readonly obsidianApp: App;
     private readonly obsidianComponent: Component | null;
     private readonly parentUlElement: HTMLElement;
     private readonly taskLayoutOptions: TaskLayoutOptions;
     private readonly queryLayoutOptions: QueryLayoutOptions;
 
-    private static async obsidianMarkdownRenderer(
+    public static async obsidianMarkdownRenderer(
+        app: App,
         text: string,
         element: HTMLSpanElement,
         path: string,
         obsidianComponent: Component | null,
     ) {
-        if (!obsidianComponent) throw new Error('Must call the Obsidian renderer with an Obsidian Component object');
-        await MarkdownRenderer.renderMarkdown(text, element, path, obsidianComponent);
+        if (!obsidianComponent) {
+            return;
+        }
+
+        await MarkdownRenderer.render(app, text, element, path, obsidianComponent);
     }
 
     /**
@@ -82,18 +103,21 @@ export class TaskLineRenderer {
      */
     constructor({
         textRenderer = TaskLineRenderer.obsidianMarkdownRenderer,
+        obsidianApp,
         obsidianComponent,
         parentUlElement,
         taskLayoutOptions,
         queryLayoutOptions,
     }: {
         textRenderer?: TextRenderer;
+        obsidianApp: App;
         obsidianComponent: Component | null;
         parentUlElement: HTMLElement;
         taskLayoutOptions: TaskLayoutOptions;
         queryLayoutOptions: QueryLayoutOptions;
     }) {
         this.textRenderer = textRenderer;
+        this.obsidianApp = obsidianApp;
         this.obsidianComponent = obsidianComponent;
         this.parentUlElement = parentUlElement;
         this.taskLayoutOptions = taskLayoutOptions;
@@ -110,18 +134,28 @@ export class TaskLineRenderer {
      * @note Output is based on the {@link DefaultTaskSerializer}'s format, with default (emoji) symbols
      * @param task The task to be rendered.
      * @param taskIndex Task's index in the list. This affects `data-line` data attributes of the list item.
+     * @param isTaskInQueryFile
      * @param isFilenameUnique Whether the name of the file that contains the task is unique in the vault.
      *                         If it is undefined, the outcome will be the same as with a unique file name:
      *                         the file name only. If set to `true`, the full path will be returned.
      */
-    public async renderTaskLine(task: Task, taskIndex: number, isFilenameUnique?: boolean): Promise<HTMLLIElement> {
+    public async renderTaskLine({
+        task,
+        taskIndex,
+        isTaskInQueryFile,
+        isFilenameUnique,
+    }: {
+        task: Task;
+        taskIndex: number;
+        isTaskInQueryFile: boolean;
+        isFilenameUnique?: boolean;
+    }): Promise<HTMLLIElement> {
         const li = createAndAppendElement('li', this.parentUlElement);
-
         li.classList.add('task-list-item', 'plugin-tasks-list-item');
 
         const textSpan = createAndAppendElement('span', li);
         textSpan.classList.add('tasks-list-text');
-        await this.taskToHtml(task, textSpan, li);
+        await this.taskToHtml(task, textSpan, li, isTaskInQueryFile);
 
         // NOTE: this area is mentioned in `CONTRIBUTING.md` under "How does Tasks handle status changes". When
         // moving the code, remember to update that reference too.
@@ -176,7 +210,12 @@ export class TaskLineRenderer {
         return li;
     }
 
-    private async taskToHtml(task: Task, parentElement: HTMLElement, li: HTMLLIElement): Promise<void> {
+    private async taskToHtml(
+        task: Task,
+        parentElement: HTMLElement,
+        li: HTMLLIElement,
+        isTaskInQueryFile: boolean,
+    ): Promise<void> {
         const fieldRenderer = new TaskFieldRenderer();
         const emojiSerializer = TASK_FORMATS.tasksPluginEmoji.taskSerializer;
         // Render and build classes for all the task's visible components
@@ -195,7 +234,7 @@ export class TaskLineRenderer {
                 // to differentiate between the container of the text and the text itself, so it will be possible
                 // to do things like surrounding only the text (rather than its whole placeholder) with a highlight
                 const internalSpan = createAndAppendElement('span', span);
-                await this.renderComponentText(internalSpan, componentString, component, task);
+                await this.renderComponentText(internalSpan, componentString, component, task, isTaskInQueryFile);
                 this.addInternalClasses(component, internalSpan);
 
                 // Add the component's CSS class describing what this component is (priority, due date etc.)
@@ -204,6 +243,28 @@ export class TaskLineRenderer {
                 // Add the component's attribute ('priority-medium', 'due-past-1d' etc.)
                 fieldRenderer.addDataAttribute(span, task, component);
                 fieldRenderer.addDataAttribute(li, task, component);
+
+                if (Task.allDateFields().includes(component)) {
+                    const componentDateField = component as AllTaskDateFields;
+
+                    // Note: The more convenient span.onClickEvent() doesn't work here, as it is not available when tests are run.
+                    span.addEventListener('click', (ev: MouseEvent) => {
+                        ev.preventDefault(); // suppress the default click behavior
+                        ev.stopPropagation(); // suppress further event propagation
+                        promptForDate(span, task, componentDateField, defaultTaskSaver);
+                    });
+
+                    span.addEventListener('contextmenu', (ev: MouseEvent) => {
+                        ev.preventDefault(); // suppress the default context menu
+                        ev.stopPropagation(); // suppress further event propagation
+                        const menu = new DateMenu(componentDateField, task, defaultTaskSaver);
+                        menu.showAtPosition({ x: ev.clientX, y: ev.clientY });
+                    });
+                    span.setAttribute(
+                        'title',
+                        `Click to edit ${splitDateText(componentDateField)}, Right-click for more options`,
+                    );
+                }
             }
         }
 
@@ -230,47 +291,87 @@ export class TaskLineRenderer {
         componentString: string,
         component: TaskLayoutComponent,
         task: Task,
+        isTaskInQueryFile: boolean,
     ) {
         if (component === TaskLayoutComponent.Description) {
-            componentString = GlobalFilter.getInstance().removeAsWordFromDependingOnSettings(componentString);
+            return await this.renderDescription(task, span, isTaskInQueryFile);
+        }
+        span.innerHTML = componentString;
+    }
 
-            const { debugSettings } = getSettings();
-            if (debugSettings.showTaskHiddenData) {
-                // Add some debug output to enable hidden information in the task to be inspected.
-                componentString += `<br>🐛 <b>${task.lineNumber}</b> . ${task.sectionStart} . ${task.sectionIndex} . '<code>${task.originalMarkdown}</code>'<br>'<code>${task.path}</code>' > '<code>${task.precedingHeader}</code>'<br>`;
+    private async renderDescription(task: Task, span: HTMLSpanElement, isTaskInQueryFile: boolean) {
+        let description = this.adjustRelativeLinksInDescription(task, isTaskInQueryFile);
+        description = GlobalFilter.getInstance().removeAsWordFromDependingOnSettings(description);
+
+        const { debugSettings } = getSettings();
+        if (debugSettings.showTaskHiddenData) {
+            // Add some debug output to enable hidden information in the task to be inspected.
+            description += `<br>🐛 <b>${task.lineNumber}</b> . ${task.sectionStart} . ${task.sectionIndex} . '<code>${task.originalMarkdown}</code>'<br>'<code>${task.path}</code>' > '<code>${task.precedingHeader}</code>'<br>`;
+        }
+        await this.textRenderer(this.obsidianApp, description, span, task.path, this.obsidianComponent);
+
+        // If the task is a block quote, the block quote wraps the p-tag that contains the content.
+        // In that case, we need to unwrap the p-tag *inside* the surrounding block quote.
+        // Otherwise, we unwrap the p-tag as a direct descendant of the span.
+        const blockQuote = span.querySelector('blockquote');
+        const directParentOfPTag = blockQuote ?? span;
+
+        // Unwrap the p-tag that was created by the MarkdownRenderer:
+        const pElement = directParentOfPTag.querySelector('p');
+        if (pElement !== null) {
+            while (pElement.firstChild) {
+                directParentOfPTag.insertBefore(pElement.firstChild, pElement);
             }
-            await this.textRenderer(componentString, span, task.path, this.obsidianComponent);
+            pElement.remove();
+        }
 
-            // If the task is a block quote, the block quote wraps the p-tag that contains the content.
-            // In that case, we need to unwrap the p-tag *inside* the surrounding block quote.
-            // Otherwise, we unwrap the p-tag as a direct descendant of the span.
-            const blockQuote = span.querySelector('blockquote');
-            const directParentOfPTag = blockQuote ?? span;
-
-            // Unwrap the p-tag that was created by the MarkdownRenderer:
-            const pElement = directParentOfPTag.querySelector('p');
-            if (pElement !== null) {
-                while (pElement.firstChild) {
-                    directParentOfPTag.insertBefore(pElement.firstChild, pElement);
-                }
+        // Remove an empty trailing p-tag that the MarkdownRenderer appends when there is a block link:
+        span.querySelectorAll('p').forEach((pElement) => {
+            if (!pElement.hasChildNodes()) {
                 pElement.remove();
             }
+        });
 
-            // Remove an empty trailing p-tag that the MarkdownRenderer appends when there is a block link:
-            span.querySelectorAll('p').forEach((pElement) => {
-                if (!pElement.hasChildNodes()) {
-                    pElement.remove();
-                }
-            });
-
-            // Remove the footnote that the MarkdownRenderer appends when there is a footnote in the task:
-            span.querySelectorAll('.footnotes').forEach((footnoteElement) => {
-                footnoteElement.remove();
-            });
-        } else {
-            span.innerHTML = componentString;
-        }
+        // Remove the footnote that the MarkdownRenderer appends when there is a footnote in the task:
+        span.querySelectorAll('.footnotes').forEach((footnoteElement) => {
+            footnoteElement.remove();
+        });
     }
+
+    private adjustRelativeLinksInDescription(task: Task, isTaskInQueryFile: boolean) {
+        // Skip if task is from the same file as the query
+        if (isTaskInQueryFile) {
+            return task.description;
+        }
+
+        // Skip if the task is in a file with no links
+        const linkCache = task.file.cachedMetadata.links;
+        if (!linkCache) {
+            return task.description;
+        }
+
+        // Find links in the task description
+        const taskLinks = linkCache.filter((link) => {
+            return (
+                link.position.start.line === task.taskLocation.lineNumber &&
+                task.description.includes(link.original) &&
+                link.link.startsWith('#')
+            );
+        });
+
+        let description = task.description;
+        if (taskLinks.length !== 0) {
+            // a task can only be from one file, so we can replace all the internal links
+            //in the description with the new file path
+            for (const link of taskLinks) {
+                const fullLink = `[[${task.path}${link.link}|${link.displayText}]]`;
+                // Replace the first instance of this link:
+                description = description.replace(link.original, fullLink);
+            }
+        }
+        return description;
+    }
+
     /*
      * Adds internal classes for various components (right now just tags actually), meaning that we modify the existing
      * rendered element to add classes inside it.
@@ -363,5 +464,60 @@ export class TaskLineRenderer {
                 tooltip.remove();
             });
         });
+    }
+
+    public async renderListItem(taskList: HTMLUListElement, listItem: ListItem, listItemIndex: number) {
+        const li = createAndAppendElement('li', taskList);
+
+        if (listItem.statusCharacter) {
+            const checkbox = createAndAppendElement('input', li);
+            checkbox.classList.add('task-list-item-checkbox');
+            checkbox.type = 'checkbox';
+
+            checkbox.addEventListener('click', (event: MouseEvent) => {
+                event.preventDefault();
+                // It is required to stop propagation so that obsidian won't write the file with the
+                // checkbox (un)checked. Obsidian would write after us and overwrite our change.
+                event.stopPropagation();
+
+                // Should be re-rendered as enabled after update in file.
+                checkbox.disabled = true;
+
+                const checkedOrUncheckedListItem = listItem.checkOrUncheck();
+                replaceTaskWithTasks({ originalTask: listItem, newTasks: checkedOrUncheckedListItem });
+            });
+
+            if (listItem.statusCharacter !== ' ') {
+                checkbox.checked = true;
+                li.classList.add('is-checked');
+            }
+
+            li.classList.add('task-list-item');
+
+            // Set these to be compatible with stock obsidian lists:
+            li.setAttribute('data-task', listItem.statusCharacter.trim());
+            // Trim to ensure empty attribute for space. Same way as obsidian.
+            li.setAttribute('data-line', listItemIndex.toString());
+        }
+
+        const span = createAndAppendElement('span', li);
+        await this.textRenderer(
+            this.obsidianApp,
+            listItem.description,
+            span,
+            listItem.findClosestParentTask()?.path ?? '',
+            this.obsidianComponent,
+        );
+
+        // Unwrap the p-tag that was created by the MarkdownRenderer:
+        const pElement = span.querySelector('p');
+        if (pElement !== null) {
+            while (pElement.firstChild) {
+                span.insertBefore(pElement.firstChild, pElement);
+            }
+            pElement.remove();
+        }
+
+        return li;
     }
 }

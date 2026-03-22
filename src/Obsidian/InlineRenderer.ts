@@ -1,4 +1,4 @@
-import type { MarkdownPostProcessorContext, Plugin } from 'obsidian';
+import type { App, MarkdownPostProcessorContext, Plugin } from 'obsidian';
 import { MarkdownRenderChild } from 'obsidian';
 import { GlobalFilter } from '../Config/GlobalFilter';
 import { TaskLayoutOptions } from '../Layout/TaskLayoutOptions';
@@ -8,9 +8,31 @@ import { Task } from '../Task/Task';
 import { TaskLineRenderer } from '../Renderer/TaskLineRenderer';
 import { TaskLocation } from '../Task/TaskLocation';
 
+/**
+ * An inline renderer for processing and rendering tasks in the Reading View of an Obsidian file.
+ *
+ * This class processes task lists using the same pipeline as the {@link QueryRenderer} while modifying specific components
+ * like removing the global filter and handling task formatting.
+ *
+ * Bug reports associated with this code: (label:"display: reading mode")
+ * https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22display%3A%20reading%20mode%22%20label%3A%22type%3A%20bug%22
+ *
+ * And probably also: (label:"scope: rendering of tasks")
+ * https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20bug%22%20label%3A%22scope%3A%20rendering%20of%20tasks%22
+ *
+ * See also {@link LivePreviewExtension} which handles Markdown task lines in Obsidian's Live Preview mode.
+ */
 export class InlineRenderer {
-    constructor({ plugin }: { plugin: Plugin }) {
-        plugin.registerMarkdownPostProcessor(this._markdownPostProcessor.bind(this));
+    private readonly app: App;
+
+    constructor({ plugin, app }: { plugin: Plugin; app: App }) {
+        this.app = app;
+
+        plugin.registerMarkdownPostProcessor((el, ctx) => {
+            plugin.app.workspace.onLayoutReady(() => {
+                this.markdownPostProcessor(el, ctx);
+            });
+        });
     }
 
     public markdownPostProcessor = this._markdownPostProcessor.bind(this);
@@ -96,6 +118,7 @@ export class InlineRenderer {
         }
 
         const taskLineRenderer = new TaskLineRenderer({
+            obsidianApp: this.app,
             obsidianComponent: childComponent,
             parentUlElement: element,
             taskLayoutOptions: new TaskLayoutOptions(),
@@ -115,16 +138,21 @@ export class InlineRenderer {
             }
             const dataLine: string = renderedElement.getAttr('data-line') ?? '0';
             const taskIndex: number = Number.parseInt(dataLine, 10);
-            const taskElement = await taskLineRenderer.renderTaskLine(task, taskIndex);
+            const taskElement = await taskLineRenderer.renderTaskLine({
+                task,
+                taskIndex,
+                isTaskInQueryFile: true,
+            });
 
             // If the rendered element contains a sub-list or sub-div (e.g. the
             // folding arrow), we need to keep it.
             const renderedChildren = renderedElement.childNodes;
             for (let i = 0; i < renderedChildren.length; i = i + 1) {
                 const renderedChild = renderedChildren[i];
-                if (renderedChild.nodeName.toLowerCase() === 'div') {
+                const nodeName = renderedChild.nodeName.toLowerCase();
+                if (nodeName === 'div') {
                     taskElement.prepend(renderedChild);
-                } else if (renderedChild.nodeName.toLowerCase() === 'ul') {
+                } else if (nodeName === 'ul' || nodeName === 'ol') {
                     taskElement.append(renderedChild);
                 }
             }

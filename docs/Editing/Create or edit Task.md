@@ -84,7 +84,7 @@ There is a lot of flexibility here. For example:
 
 - You can type in exact dates, such as `2022-11-28`.
 - You can also enter parts of dates, such as `6 oct`.
-- You can enter relative dates, such as `today` or `tomorrow` or `Saturday`.
+- You can enter relative dates, such as `today`, `tomorrow`, `Saturday`, `10 days`, `2 weeks`.
 
 Note that relative dates will be always interpreted as being in the future, because that is usually what you want. You can change this behavior by unchecking "Only future dates" if you want to enter an overdue task or experiment with the way how relative dates in the past would be interpreted in queries.
 
@@ -96,7 +96,24 @@ Note that relative dates will be always interpreted as being in the future, beca
 > - `Only future dates` was introduced in Tasks 1.15.0.
 > - Editing of [[Dates#Created date|created]], [[Dates#Done date|done]] and [[Dates#Cancelled date|cancelled]] dates was introduced in Tasks 5.5.0.
 
-### Date abbreviations
+#### Date picker
+
+> [!released]
+> Introduced in Tasks 7.13.0.
+
+The modal provides a date picker, for easy selection of dates for your tasks.
+
+It uses a native date-picker on each platform, so the exact appearance and behaviour will vary.
+
+![Date-picker demonstration video](https://www.youtube.com/v/bOc6J2m6HSM)
+<span class="caption">Date-picker demonstration video</span>
+
+The screenshot below is from a Mac.
+
+![The date-picker allows easy mouse and keyboard adding and editing of dates](../images/modal-date-picker.png)
+<span class="caption">The date-picker allows easy mouse and keyboard adding and editing of dates</span>
+
+#### Date abbreviations
 
 > [!released]
 Introduced in Tasks 1.8.0.
@@ -242,6 +259,12 @@ To close the modal and cancel your edits, do one of:
 - hit the `Esc` key.
 
 ## Known limitations
+
+### No support for Auto Complete in the Description
+
+The Description field in the 'Create or edit Task' Modal does not yet support Obsidian's Auto Complete facility to help with adding tags, formatting, linking to other notes and so on.
+
+We are tracking this in [issue #1763](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/1763).
 
 ### Need to scroll on phone screens
 

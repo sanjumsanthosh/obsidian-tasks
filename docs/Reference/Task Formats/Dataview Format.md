@@ -61,18 +61,18 @@ The brackets `[]` and `()` differ in how [Dataview displays them](https://blacks
 > - Separating each field with at least 2 spaces.
 >
 > > [!example]
->   >
->   > ```text
->   >  - [ ] This is a task [priority:: high]  [start:: 2023-04-24]  [due:: 2023-05-01]
->   >  ```
+> >
+> > ```text
+> >  - [ ] This is a task [priority:: high]  [start:: 2023-04-24]  [due:: 2023-05-01]
+> >  ```
 >
 > - Separating each field with commas.
 >
 > > [!example]
->   >
->   > ```text
->   >  - [ ] This is a task [priority:: high], [start:: 2023-04-24], [due:: 2023-05-01]
->   > ```
+> >
+> > ```text
+> >  - [ ] This is a task [priority:: high], [start:: 2023-04-24], [due:: 2023-05-01]
+> > ```
 
 ## Supported dataview fields
 
@@ -130,6 +130,19 @@ For more information, see [[Priority]].
 ```
 
 For more information, see [[Recurring Tasks]].
+
+### Dataview Format for OnCompletion
+
+<!-- snippet: DocsSamplesForTaskFormats.test.Serializer_OnCompletion_dataview-snippet.approved.md -->
+```md
+- [ ] #task Keep this task when done
+- [ ] #task Keep this task when done too  [onCompletion:: keep]
+- [ ] #task Remove this task when done  [onCompletion:: delete]
+- [ ] #task Remove completed instance of this recurring task when done  [repeat:: every day]  [onCompletion:: delete]
+```
+<!-- endSnippet -->
+
+For more information, see [[On Completion]].
 
 ### Dataview Format for Dependencies
 

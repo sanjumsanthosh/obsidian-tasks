@@ -4,10 +4,16 @@ publish: true
 
 # Structure of the code
 
+See how the [[#src/]] and [[#tests/]] directories are structured.
+
 ## Directory structure
 
 ### src/
 
+The `src/` directory contains the code that **implements** the Tasks plugin.
+
+- [main.ts](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/main.ts)
+  - The `TasksPlugin` class.
 - [Api/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/src/Api):
   - The [Tasks API](https://publish.obsidian.md/tasks/Advanced/Tasks+Api)
 - [Commands/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/src/Commands)
@@ -42,6 +48,11 @@ publish: true
     - Abstraction for the different types of [text filters](https://publish.obsidian.md/tasks/Queries/Filters#Text%20filters):
       - Substring search
       - Regular expression search
+  - [Presets](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/src/Query/Presets)
+    - Implementation details of the [presets](https://publish.obsidian.md/tasks/Queries/Presets) facility, for declaring re-usable, named instruction blocks.
+    - See also these in `src/Config/`:
+      - [PresetsSettingsUI.ts](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/Config/PresetsSettingsUI.ts)
+      - [PresetsSettingsUI.scss](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/Config/PresetsSettingsUI.scss)
   - [Sort/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/src/Query/Sort)
     - Implementation of the sorting mechanism.
     - [Sort.ts](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/Query/Sort/Sort.ts) is the starting point for sorting tasks.
@@ -67,3 +78,25 @@ publish: true
   - [Menus/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/src/ui/Menus)
     - Various context menus.
     - [TaskEditingMenu](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/src/ui/Menus/TaskEditingMenu.ts) is an abstraction for context menus on a Task instance, based upon `TaskEditingInstruction`.
+
+### tests/
+
+The `tests/` directory contains the code that **tests** the Tasks plugin, using mechanisms described in [[About Testing]]
+
+Most sub-directories here have the same structure and purpose as their counterparts described above in [[#src/]].
+
+The remainder are:
+
+- [\_\_mocks\_\_/obsidian.ts](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/tests/__mocks__/obsidian.ts)
+  - Mock implementations of a few types and functions from the Obsidian API.
+- [\_\_test_data\_\_/MockDataForTogglingTasks/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/tests/__test_data__/MockDataForTogglingTasks)
+  - Some data used by [File.test.ts](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/tests/Obsidian/File.test.ts).
+- [global-setup.js](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/tests/global-setup.js)
+  - Enforce all tests to run in UTC time.
+- [CustomMatchers/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/tests/CustomMatchers)
+  - Jest custom matchers for Tasks classes.
+- [Obsidian/\_\_test_data\_\_/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/tests/Obsidian/__test_data__)
+  - JSON files saved from the Obsidian cache, to enable testing against some of the Obsidian API.
+  - See [[Using Obsidian API in tests]].
+- [TestingTools/](https://github.com/obsidian-tasks-group/obsidian-tasks/tree/main/tests/TestingTools)
+  - Many helper functions to streamling testing.

@@ -1,15 +1,20 @@
 import moment from 'moment';
-import { TasksDate } from '../../src/Scripting/TasksDate';
+import { TasksDate } from '../../src/DateTime/TasksDate';
 import { TaskRegularExpressions } from '../../src/Task/TaskRegularExpressions';
 import { Task } from '../../src/Task/Task';
+import { Link } from '../../src/Task/Link';
 
 export function formatToRepresentType(x: any): string {
     if (typeof x === 'string') {
-        return "'" + x + "'";
+        return "'" + x.replace(/\n/g, '\\n') + "'";
     }
 
     if (moment.isMoment(x)) {
         return `moment('${x.format(TaskRegularExpressions.dateTimeFormat)}')`;
+    }
+
+    if (x instanceof Link) {
+        return formatToRepresentType(x.destinationPath);
     }
 
     if (x instanceof Task) {
@@ -45,6 +50,10 @@ export function determineExpressionType(value: any): string {
 
     if (moment.isMoment(value)) {
         return 'Moment';
+    }
+
+    if (value instanceof Link) {
+        return 'Link';
     }
 
     if (value instanceof Task) {

@@ -11,6 +11,9 @@ aliases:
 ## In this section
 
 - [[Dataview]]
+- [[Kanban Plugin]]
+- [[Meta Bind Plugin]]
+  - Easily modify the [[layout]] of your Tasks searches, without having to edit instructions.
 - [[QuickAdd]]
   - Using the Quickadd plugin to help create tasks
 

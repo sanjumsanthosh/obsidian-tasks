@@ -19,6 +19,9 @@ See [[#Order of the new task]] below, for how to change this behaviour and make 
 
 The new task will have updated dates based off the original task.
 
+> [!tip]
+> If you only want the latest occurrence, and don't care to see the clutter of all the earlier tasks, check out the new [[On Completion]] facility, added in Tasks 7.8.0.
+
 ### Basic Example
 
 Take as an example the following task:
@@ -43,6 +46,8 @@ Alternatively, if you have enabled addition of [[Dates#Created date|created date
 - [x] take out the trash 🔁 every Sunday 📅 2021-04-25 ✅ 2023-03-10
 ```
 
+## Recurrence Settings
+
 ### Order of the new task
 
 Use this setting to control where the recurring task is inserted. The default is to put the new task before the original one.
@@ -52,7 +57,18 @@ Use this setting to control where the recurring task is inserted. The default is
 > [!released]
 > Control of the location (or order) of the new task was introduced in Tasks 3.8.0
 
-### Recurring Tasks with Custom Statuses
+### Remove scheduled date on recurrence
+
+Use this setting to control whether the Scheduled date should be removed from the next occurrence. The Scheduled date is only removed the task also has a Start or Due date.
+
+This is useful when you want the Start and Due dates to carry forward to the next recurrence, but you will set the Scheduled date in future, once you know when you intend to work on it.
+
+![Setting for Remove scheduled date on recurrence](../images/settings-recurrence-remove-scheduled-date.png)
+
+> [!released]
+> The option to remove the scheduled date on recurrence was introduced in Tasks 7.19.0.
+
+## Recurring Tasks with Custom Statuses
 
 > [!Warning]
 > If you use [[Custom Statuses]], please see [[Recurring Tasks and Custom Statuses]] for important information about how these two facilities interact.
@@ -232,7 +248,7 @@ Since Tasks 5.0.0, this is enforced by the [[Create or edit Task]] modal:
 
 ![The 'Create or edit Task', with error message saying a date must be set on a recurring task.](../images/modal-showing-date-needed-on-recurring-task.png)
 
-*Above: The 'Create or edit Task', with an error message saying a date must be set on a recurring task.*
+_Above: The 'Create or edit Task', with an error message saying a date must be set on a recurring task._
 
 > [!info] Detail
 > Technically, you _can_ add a recurrence rule to a task without any dates, and there is nothing stopping anyone editing a task like to give it a recurrence rule but no date.

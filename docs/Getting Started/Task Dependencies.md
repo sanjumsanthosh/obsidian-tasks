@@ -35,8 +35,8 @@ flowchart BT
 
 classDef TASK        stroke-width:3px,font-family:monospace;
 
-2["- [ ] do this first 🆔 abcdef"]:::TASK
-1["- [ ] do this after first ⛔ abcdef"]:::TASK
+2["\- [ ] do this first 🆔 abcdef"]:::TASK
+1["\- [ ] do this after first ⛔ abcdef"]:::TASK
 1-- depends on --> 2
 
 linkStyle default stroke:gray
@@ -51,8 +51,8 @@ flowchart BT
 
 classDef TASK        stroke-width:3px,font-family:monospace;
 
-2["- [ ] do this first&nbsp;&nbsp;[id:: abcdef]"]:::TASK
-1["- [ ] do this after first&nbsp;&nbsp;[dependsOn:: abcdef]"]:::TASK
+2["\- [ ] do this first&nbsp;&nbsp;[id:: abcdef]"]:::TASK
+1["\- [ ] do this after first&nbsp;&nbsp;[dependsOn:: abcdef]"]:::TASK
 1-- depends on --> 2
 
 linkStyle default stroke:gray
@@ -274,8 +274,8 @@ is not blocked
 >
 > classDef TASK        stroke-width:3px,font-family:monospace;
 >
-> 2["- [ ] this is blocking  🆔 abcdef"]:::TASK
-> 1["- [ ] this is blocked&nbsp ⛔ abcdef"]:::TASK
+> 2["\- [ ] this is blocking  🆔 abcdef"]:::TASK
+> 1["\- [ ] this is blocked&nbsp ⛔ abcdef"]:::TASK
 > 1-- depends on --> 2
 >
 > linkStyle default stroke:gray
@@ -289,8 +289,8 @@ is not blocked
 >
 > classDef TASK        stroke-width:3px,font-family:monospace;
 >
-> 4["- [ ] not blocking  🆔 abcdef"]:::TASK
-> 3["- [x] not blocked&nbsp ⛔ abcdef"]:::TASK
+> 4["\- [ ] not blocking  🆔 abcdef"]:::TASK
+> 3["\- [x] not blocked&nbsp ⛔ abcdef"]:::TASK
 > 3-- depends on --> 4
 >
 > linkStyle default stroke:gray
@@ -304,9 +304,9 @@ is not blocked
 >
 > classDef TASK        stroke-width:3px,font-family:monospace;
 >
-> 5["- [x] not blocking  🆔 abcdef"]:::TASK
-> 4["- [ ] blocking 🆔 ghijkl"]:::TASK
-> 3["- [ ] blocked ⛔ abcdef,ghijkl"]:::TASK
+> 5["\- [x] not blocking  🆔 abcdef"]:::TASK
+> 4["\- [ ] blocking 🆔 ghijkl"]:::TASK
+> 3["\- [ ] blocked ⛔ abcdef,ghijkl"]:::TASK
 > 3-- depends on --> 5
 > 3-- depends on --> 4
 >
@@ -362,9 +362,21 @@ See [[Task Properties#Values for Task Dependencies|Task property values for Task
 
 ## Known Limitations
 
+Adding dependencies:
+
+- Using the edit task modal, adding lots of dependencies in one step (perhaps 4 or more) can cause an error and some broken dependencies. We are tracking this in [issue #3252](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3252).
+
+Visualising dependencies:
+
 - It's not yet possible to directly navigate from a task to the tasks it depends on.
 - Outside of the edit task modal, it is not possible to see the descriptions of the blocking tasks.
 - It is not yet possible to visualise the relationships in any kind of graphical view.
+
+Searching and dependencies:
+
 - The [[Urgency]] score does not account for task dependencies. We are tracking this in [issue #2655](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/2655).
+
+Dependencies and recurring tasks:
+
 - When [[recurring tasks]] are completed, the next recurrence will intentionally have any `id` and `dependsOn` values removed.
   - See [[Recurring Tasks#Next recurrence has any dependency fields removed|Next recurrence has any dependency fields removed]]

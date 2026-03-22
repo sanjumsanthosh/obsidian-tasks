@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" != "main" ]]; then
+  echo "Error: You are not on the 'main' branch. Current branch: '$current_branch'"
+  echo "Please switch to the 'main' branch to run this release."
+  echo "Exiting."
+
+  exit 1
+fi
+
 if [ "$#" -ne 2 ]; then
     echo "Must provide exactly two arguments."
     echo "First one must be the new version number."
@@ -24,14 +33,25 @@ fi
 NEW_VERSION=$1
 MINIMUM_OBSIDIAN_VERSION=$2
 
+if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+  echo "Error: Tag '$NEW_VERSION' already exists."
+  echo "Exiting."
+
+  exit 1
+fi
+
 echo "Updating to version ${NEW_VERSION} with minimum obsidian version ${MINIMUM_OBSIDIAN_VERSION}"
 
 read -p "Continue? [y/N] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  echo "Updating X.Y.Z version numbers in docs"
-  find ./docs/ -name _meta -prune -o -type f -name '*.md' -exec sed -i '' s/X\.Y\.Z/${NEW_VERSION}/g {} +
+  echo "Running yarn in case node_modules is out-of-date"
+  yarn
+
+  echo "Updating X.Y.Z version numbers in docs and resources"
+  find ./docs/      -name _meta -prune -o -type f -name '*.md' -exec sed -i '' s/X\.Y\.Z/${NEW_VERSION}/g {} +
+  find ./resources/ -name _meta -prune -o -type f -name '*.md' -exec sed -i '' s/X\.Y\.Z/${NEW_VERSION}/g {} +
 
   echo "Updating package.json"
   TEMP_FILE=$(mktemp)
@@ -57,9 +77,10 @@ then
     git tag "${NEW_VERSION}"
     git push
     LEFTHOOK=0 git push --tags
+
+    echo "Remember to publish the documentation via Obsidian Publish!"
   fi
 
-  echo "Remember to publish the documentation via Obsidian Publish!"
 else
   echo "Exiting."
   exit 1

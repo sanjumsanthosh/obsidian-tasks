@@ -5,6 +5,7 @@ import moment from 'moment';
 import type { Task } from 'Task/Task';
 import { GlobalFilter } from '../../src/Config/GlobalFilter';
 import { Status } from '../../src/Statuses/Status';
+import { OnCompletion } from '../../src/Task/OnCompletion';
 import { EditableTask } from '../../src/ui/EditableTask';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
 
@@ -54,6 +55,7 @@ describe('EditableTask tests', () => {
               "doneDate": "2023-07-05",
               "dueDate": "2023-07-04",
               "forwardOnly": true,
+              "onCompletion": "delete",
               "originalBlocking": [],
               "priority": "medium",
               "recurrenceRule": "every day when done",
@@ -140,6 +142,7 @@ describe('EditableTask tests', () => {
         editableTask.description = '';
         editableTask.status = Status.TODO;
         editableTask.priority = 'none';
+        editableTask.onCompletion = OnCompletion.Ignore;
         editableTask.recurrenceRule = '';
         editableTask.createdDate = '';
         editableTask.startDate = '';
@@ -168,7 +171,8 @@ describe('EditableTask tests', () => {
               "id": "abcdef",
               "indentation": "  ",
               "listMarker": "-",
-              "originalMarkdown": "  - [ ] Do exercises #todo #health 🆔 abcdef ⛔ 123456,abc123 🔼 🔁 every day when done ➕ 2023-07-01 🛫 2023-07-02 ⏳ 2023-07-03 📅 2023-07-04 ❌ 2023-07-06 ✅ 2023-07-05 ^dcf64c",
+              "onCompletion": "",
+              "originalMarkdown": "  - [ ] Do exercises #todo #health 🆔 abcdef ⛔ 123456,abc123 🔼 🔁 every day when done 🏁 delete ➕ 2023-07-01 🛫 2023-07-02 ⏳ 2023-07-03 📅 2023-07-04 ❌ 2023-07-06 ✅ 2023-07-05 ^dcf64c",
               "parent": null,
               "priority": "3",
               "recurrence": null,
@@ -184,6 +188,7 @@ describe('EditableTask tests', () => {
                   "type": "TODO",
                 },
               },
+              "statusCharacter": " ",
               "tags": [
                 "#todo",
                 "#health",
@@ -194,7 +199,14 @@ describe('EditableTask tests', () => {
                 "_sectionIndex": 3,
                 "_sectionStart": 5,
                 "_tasksFile": TasksFile {
+                  "_cachedMetadata": {},
+                  "_frontmatter": {
+                    "tags": [],
+                  },
+                  "_outlinksInBody": [],
+                  "_outlinksInProperties": [],
                   "_path": "some/folder/fileName.md",
+                  "_tags": [],
                 },
               },
             }

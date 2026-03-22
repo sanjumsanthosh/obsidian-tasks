@@ -917,9 +917,19 @@ Such tasks look like they have a date, but that date will never be found. When v
 
 Any such mistakes can be found systematically with this search:
 
-    ```tasks
-    (created date is invalid) OR (done date is invalid) OR (due date is invalid) OR (scheduled date is invalid) OR (start date is invalid)
-    ```
+<!-- include: ValidateTasks.test.validate-tasks_find_problem_dates.approved.text -->
+````text
+```tasks
+# These instructions need to be all on one line:
+(cancelled date is invalid) OR (created date is invalid) OR (done date is invalid) OR (due date is invalid) OR (scheduled date is invalid) OR (start date is invalid)
+
+# Optionally, uncomment this line and exclude your templates location
+# path does not include _templates
+
+group by path
+```
+````
+<!-- endInclude -->
 
 > [!warning]
 > If the above search finds any tasks with invalid dates, they are best fixed by clicking on the [[Backlinks|backlink]] to navigate
@@ -1266,6 +1276,19 @@ Since Tasks 4.2.0, **[[Custom Filters|custom filtering]] by original markdown li
 For example, this could be used to extract information from `task.originalMarkdown` that Tasks does not parse, to use for filtering tasks.
 
 <!-- placeholder to force blank line before included text --><!-- include: CustomFilteringExamples.test.other_properties_task.originalMarkdown_docs.approved.md -->
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+### Line Number
+
+There is no built-in instruction to filter by the task's line number.
+
+Since Tasks 7.16.0, **[[Custom Filters|custom filtering]] by the task's line number** is now possible, using `task.lineNumber`.
+
+> [!tip]
+> With `task.lineNumber`, the first line in the file is on line number `0` (zero), not `1` (one).
+
+<!-- placeholder to force blank line before included text --><!-- include: CustomFilteringExamples.test.other_properties_task.lineNumber_docs.approved.md -->
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 

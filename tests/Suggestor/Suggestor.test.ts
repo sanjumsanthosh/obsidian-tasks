@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { verifyAsJson } from 'approvals/lib/Providers/Jest/JestApprovals';
+import { verifyAll, verifyAsJson } from 'approvals/lib/Providers/Jest/JestApprovals';
 import moment from 'moment';
 import * as chrono from 'chrono-node';
 import type { Task } from 'Task/Task';
@@ -20,6 +20,8 @@ import { verifyMarkdown } from '../TestingTools/VerifyMarkdown';
 import { GlobalFilter } from '../../src/Config/GlobalFilter';
 import { MarkdownTable } from '../../src/lib/MarkdownTable';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
+import { StatusRegistry } from '../../src/Statuses/StatusRegistry';
+import { StatusConfiguration, StatusType } from '../../src/Statuses/StatusConfiguration';
 
 window.moment = moment;
 
@@ -61,7 +63,7 @@ function cursorPosition(line: string): [lineWithoutCursor: string, cursorIndex: 
  * @returns the SuggestInfo, with all ID's Masked
  */
 function maskIDSuggestionForTesting(idSymbol: string, suggestions: SuggestInfo[]): SuggestInfo[] {
-    const idRegex = new RegExp(`${idSymbol}( [0-9a-zA-Z]*)`, 'ug');
+    const idRegex = new RegExp(`${idSymbol}( [0-9a-zA-Z]+)`, 'ug');
     suggestions.forEach((element) => {
         element.appendText = element.appendText.replace(idRegex, `${idSymbol} ******`);
     });
@@ -198,6 +200,19 @@ describe.each([
         shouldOnlyOfferDefaultSuggestions(suggestions);
     }
 
+    function verifyFirstSuggestions(lines: string[], title: string) {
+        verifyAll(title, lines, (line) => {
+            const suggestions = buildSuggestionsForEndOfLine(line, []);
+            return `For this markdown line:
+"${line}"
+
+The first suggestion is:
+${JSON.stringify(suggestions[0], null, 4)}
+--------------------------------------------------------------------------------
+`;
+        });
+    }
+
     const {
         dueDateSymbol,
         scheduledDateSymbol,
@@ -206,6 +221,7 @@ describe.each([
         recurrenceSymbol,
         idSymbol,
         dependsOnSymbol,
+        onCompletionSymbol,
     } = symbols;
 
     it('offers basic completion options for an empty task', () => {
@@ -227,6 +243,15 @@ describe.each([
         shouldStartWithSuggestionsContaining(line, ['today', 'tomorrow']);
     });
 
+    it('offers correct options for partial due date lines', () => {
+        const lines = [
+            `- [ ] some task ${dueDateSymbol}`, // just the due date symbol
+            `- [ ] some task ${dueDateSymbol} 27 oct`, // an absolute date
+            `- [ ] some task ${dueDateSymbol} 1 year`, // a relative date
+        ];
+        verifyFirstSuggestions(lines, 'How due date suggestions are affected by what the user has typed:');
+    });
+
     it('offers generic recurrence completions', () => {
         const line = `- [ ] some task ${recurrenceSymbol}`;
         shouldStartWithSuggestionsEqualling(line, ['every', 'every day', 'every week']);
@@ -236,6 +261,22 @@ describe.each([
         // Arrange
         const line = `- [ ] some task ${recurrenceSymbol} every w`;
         shouldStartWithSuggestionsEqualling(line, ['every week', 'every week on Sunday', 'every week on Monday']);
+    });
+
+    it('offers correct options for partial recurrence lines', () => {
+        const lines = [
+            `- [ ] some task ${recurrenceSymbol}`,
+            `- [ ] some task ${recurrenceSymbol} ev`,
+            `- [ ] some task ${recurrenceSymbol} every day`,
+            `- [ ] some task ${recurrenceSymbol} every day when done`,
+            `- [ ] some task ${recurrenceSymbol} something else that ends with a space `,
+        ];
+        verifyFirstSuggestions(lines, 'How due date suggestions are affected by what the user has typed:');
+    });
+
+    it('offers OnCompletion completions', () => {
+        const line = `- [ ] some task ${onCompletionSymbol}`;
+        shouldStartWithSuggestionsEqualling(line, ['delete', 'keep']);
     });
 
     it('respects the minimal match setting', () => {
@@ -440,12 +481,15 @@ describe.each([
         const originalSettings = getSettings();
         originalSettings.autoSuggestMaxItems = 200;
 
+        // NEW_TASK_FIELD_EDIT_REQUIRED
+
         const lines = [
             '- [ ] some task',
             `- [ ] some task ${recurrenceSymbol} `,
             `- [ ] some task ${dueDateSymbol} `,
             `- [ ] some task ${scheduledDateSymbol} `,
             `- [ ] some task ${startDateSymbol} `,
+            `- [ ] some task ${onCompletionSymbol} `,
         ];
         if (global.SHOW_DEPENDENCY_SUGGESTIONS) {
             lines.push(`- [ ] some task ${idSymbol} `);
@@ -532,6 +576,7 @@ describe('onlySuggestIfBracketOpen', () => {
 describe('canSuggestForLine', () => {
     afterEach(() => {
         GlobalFilter.getInstance().reset();
+        resetSettings();
     });
 
     function canSuggestForLineWithCursor(line: string, editor: any = {}) {
@@ -566,6 +611,15 @@ describe('canSuggestForLine', () => {
     it('should not suggest when cursor is in the checkbox', () => {
         expect(canSuggestForLineWithCursor('- [ |] ')).toEqual(false);
         expect(canSuggestForLineWithCursor('- [ ]| ')).toEqual(false);
+    });
+
+    it('should not suggest if cursor is on a task with NON_TASK status', () => {
+        // With the default statuses, ? is TODO, so we should suggest:
+        expect(canSuggestForLineWithCursor('- [?] question|')).toEqual(true);
+
+        StatusRegistry.getInstance().add(new StatusConfiguration('?', 'Question', '_', true, StatusType.NON_TASK));
+        // Now ? is NON_TASK, so we should NOT suggest (issue #1509):
+        expect(canSuggestForLineWithCursor('- [?] question|')).toEqual(false);
     });
 
     it('should suggest when the cursor is at least one character past the checkbox', () => {

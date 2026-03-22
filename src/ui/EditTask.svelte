@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+
     import { TASK_FORMATS, getSettings } from '../Config/Settings';
     import type { Status } from '../Statuses/Status';
     import type { Task } from '../Task/Task';
@@ -126,7 +127,7 @@
     };
 
     const _onDescriptionKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.isComposing) {
             e.preventDefault();
             if (formIsValid) _onSubmit();
         }
