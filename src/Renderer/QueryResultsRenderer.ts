@@ -79,18 +79,11 @@ export class QueryResultsRenderer {
     ) {
         this.source = source;
         this._tasksFile = tasksFile;
-<<<<<<< HEAD
-        this.renderMarkdown = renderMarkdown;
-        this.obsidianComponent = obsidianComponent;
         this.settings = settings;
-        this.textRenderer = textRenderer;
-        this.obsidianApp = obsidianApp;
-=======
 
         // Store empty query result for now
         this.queryResult = new Query('').applyQueryToTasks([]);
         this.filteredQueryResult = this.queryResult;
->>>>>>> origin/HEAD
 
         // The engine is chosen on the basis of the code block language. Currently,
         // there is only the main engine for the plugin, this allows others to be
