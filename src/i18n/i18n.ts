@@ -1,20 +1,24 @@
 import i18next from 'i18next';
+import { getLanguage } from 'obsidian';
+
+// alphabetical order:
 import be from './locales/be.json';
 import de from './locales/de.json';
 import en from './locales/en.json';
+import ko from './locales/ko.json';
+import pt_br from './locales/pt_br.json';
 import ru from './locales/ru.json';
+import tr from './locales/tr.json';
 import uk from './locales/uk.json';
+import vi from './locales/vi.json';
 import zh_cn from './locales/zh_cn.json';
 
 let isInitialized = false;
 
 // Get Obsidian language settings
 const getObsidianLanguage = (): string => {
-    const storedLanguage = localStorage.getItem('language');
-    const selectedLanguage = storedLanguage?.toLowerCase() || 'en';
-
-    console.log(`Language in Obsidian settings: '${selectedLanguage}'; requesting Tasks in '${selectedLanguage}'.`);
-    return selectedLanguage;
+    const storedLanguage = getLanguage();
+    return storedLanguage || 'en';
 };
 
 // Define a function to initialize i18next
@@ -26,11 +30,18 @@ export const initializeI18n = async () => {
             returnEmptyString: false, // Use fallback language if i18next-parser put in empty value for untranslated text
             resources: {
                 // alphabetical order:
+                // key:         the Obsidian "Language code", defined in
+                //              https://github.com/obsidianmd/obsidian-translations?tab=readme-ov-file#existing-languages
+                // translation: the filename of the JSON file in locales subdirectory
                 be: { translation: be }, // Belarusian
                 de: { translation: de }, // German
                 en: { translation: en }, // English
+                ko: { translation: ko }, // Korean
+                'pt-BR': { translation: pt_br }, // Portuguese (Brazil)
                 ru: { translation: ru }, // Russian
+                tr: { translation: tr }, // Turkish
                 uk: { translation: uk }, // Ukrainian
+                vi: { translation: vi }, // Vietnamese
                 zh: { translation: zh_cn }, // Chinese (Simplified)
             },
             interpolation: {

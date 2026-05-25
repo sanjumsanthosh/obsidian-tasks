@@ -105,7 +105,7 @@
         "name": "Автоматически предлагать содержимое задачи"
       }
     },
-    "changeRequiresRestart": "Изменение любых настроек требует перезапуска Obsidian.",
+    "changeRequiresRestart": "НЕОБХОДИМА ПЕРЕЗАГРУЗКА.",
     "dates": {
       "cancelledDate": {
         "description": "Включение этой опции добавит отметку времени ❌ YYYY-MM-DD в конце, когда задача переключается в отмененную.",
@@ -190,6 +190,9 @@
       }
     },
     "presets": {
+      "buttons": {
+        "addNewPreset": ""
+      },
       "line1": "",
       "line2": "",
       "name": ""
@@ -206,6 +209,29 @@
           "line2": ""
         },
         "name": ""
+      }
+    },
+    "searches": {
+      "enableCustomSearches": {
+        "description": {
+          "line1": "",
+          "line2": "",
+          "line3": "",
+          "line4": ""
+        },
+        "name": ""
+      },
+      "heading": ""
+    },
+    "searchResults": {
+      "heading": "",
+      "taskCountLocation": {
+        "description": "",
+        "name": "",
+        "options": {
+          "bottom": "",
+          "top": ""
+        }
       }
     },
     "seeTheDocumentation": "Смотрите документацию",

@@ -14,6 +14,7 @@ import { DataviewTaskSerializer } from '../TaskSerializer/DataviewTaskSerializer
 import { i18n } from '../i18n/i18n';
 import { type PresetsMap, defaultPresets } from '../Query/Presets/Presets';
 import { DebugSettings } from './DebugSettings';
+import { type EditModalShowSettings, defaultEditModalShowSettings } from './EditModalShowSettings';
 import { StatusSettings } from './StatusSettings';
 import { Feature } from './Feature';
 import type { FeatureFlag } from './Feature';
@@ -80,9 +81,15 @@ export interface Settings {
     filenameAsDateFolders: string[];
     recurrenceOnNextLine: boolean;
     removeScheduledDateOnRecurrence: boolean;
+    searchResults: {
+        taskCountLocation: 'top' | 'bottom';
+    };
 
     // The custom status states.
     statusSettings: StatusSettings;
+
+    // Edit modal field render settings.
+    isShownInEditModal: EditModalShowSettings;
 
     // Collection of feature flag IDs and their state.
     features: FeatureFlag;
@@ -117,7 +124,11 @@ const defaultSettings: Readonly<Settings> = {
     filenameAsDateFolders: [],
     recurrenceOnNextLine: false,
     removeScheduledDateOnRecurrence: false,
+    searchResults: {
+        taskCountLocation: 'bottom',
+    },
     statusSettings: new StatusSettings(),
+    isShownInEditModal: defaultEditModalShowSettings,
     features: Feature.settingsFlags,
     generalSettings: {
         /* Prevent duplicate values in user settings for now,
@@ -259,8 +270,8 @@ export function getUserSelectedTaskFormat(): TaskFormat {
  *
  * Note: The vault's 'data.json' file is only updated when the user opens the Tasks settings UI.
  */
-function migrateSettings(loadedSettings: any): Partial<Settings> {
-    const migratedSettings = { ...loadedSettings };
+function migrateSettings(loadedSettings: Record<string, unknown>): Partial<Settings> {
+    const migratedSettings: Record<string, unknown> = { ...loadedSettings };
 
     // Migrate 'includes' to 'presets' if present
     if ('includes' in migratedSettings && !('presets' in migratedSettings)) {

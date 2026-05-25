@@ -61,7 +61,7 @@ Here is some more detail.
 - **Next Status Symbol**
   - the status symbol to use when the task is toggled.
 - **Status Type**
-  - one of `TODO`, `IN_PROGRESS`, `DONE`, `CANCELLED`, `NON_TASK`.
+  - one of `TODO`, `IN_PROGRESS`, `ON_HOLD`, `DONE`, `CANCELLED`, `NON_TASK`.
   - Tasks needs to know the type of each status, so that it knows how to treat them when searching, and what to do when tasks with the status are toggled.
   - types are searchable with `status.type`, for example `status.type is IN_PROGRESS`.
   - Also available:
@@ -171,14 +171,12 @@ The [[Create or edit Task#Status|‘Create or edit Task’ Modal]] allows you to
 
 ### Related commands
 
-> [!info]
-There are not yet any new commands for applying custom statuses.
-We are tracking this in [issue #1486](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/1486) .
+See [[Toggling and Editing Statuses#'Tasks Change status to...' commands|'Tasks: Change status to...' commands]] for setting task statuses via commands.
 
 ### Related searches
 
 - `done` - matches tasks with status types `DONE`, `CANCELLED` and `NON_TASK`
-- `not done` - matches tasks with status types `TODO` and `IN_PROGRESS`
+- `not done` - matches tasks with status types `TODO`, `IN_PROGRESS` and `ON_HOLD`
 - **Status Name**
   - `status.name` text search
   - `sort by status.name`

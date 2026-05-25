@@ -1,6 +1,5 @@
 import { type CachedMetadata, type FrontMatterCache, type Reference, getAllTags, parseFrontMatterTags } from 'obsidian';
-import type { Link } from '../Task/Link';
-import { LinkResolver } from '../Task/LinkResolver';
+import { Link } from '../Task/Link';
 
 export type OptionalTasksFile = TasksFile | undefined;
 
@@ -11,7 +10,7 @@ export class TasksFile {
     private readonly _path: string;
     private readonly _cachedMetadata: CachedMetadata;
     // Always make TasksFile.frontmatter.tags exist and be empty, even if no frontmatter present:
-    private readonly _frontmatter = { tags: [] } as any;
+    private readonly _frontmatter = { tags: [] } as Record<string, unknown>;
     private readonly _tags: string[] = [];
 
     private readonly _outlinksInProperties: Readonly<Link[]> = [];
@@ -36,7 +35,7 @@ export class TasksFile {
     }
 
     private createLinks(obsidianRawLinks: Reference[] | undefined) {
-        return obsidianRawLinks?.map((link) => LinkResolver.getInstance().resolve(link, this.path)) ?? [];
+        return obsidianRawLinks?.map((link) => new Link(link, this.path)) ?? [];
     }
 
     /**

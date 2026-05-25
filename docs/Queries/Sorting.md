@@ -86,7 +86,7 @@ sort by function !task.isDone
 ```
 
 - `sort by function` sorts `true` before `false`
-- Hence, we use `!` to negate `task.isDone`, so tasks with [[Status Types|Status Type]] `TODO` and `IN_PROGRESS` tasks are sorted **before** `DONE`, `CANCELLED` and `NON_TASK`.
+- Hence, we use `!` to negate `task.isDone`, so tasks with [[Status Types|Status Type]] `TODO`, `IN_PROGRESS` and `ON_HOLD` tasks are sorted **before** `DONE`, `CANCELLED` and `NON_TASK`.
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
 
@@ -111,7 +111,15 @@ sort by function task.status.name
 
 ### Status Type
 
-- `sort by status.type` (Sorted in the order `IN_PROGRESS`, `TODO`, `DONE`, `CANCELLED` then `NON_TASK`)
+- `sort by status.type`
+  - This sorts tasks by the [[Status Types|types]] you have given to your custom statuses.
+  - Tasks are sorted in this order:
+    - `IN_PROGRESS`
+    - `TODO`
+    - `ON_HOLD`
+    - `DONE`
+    - `CANCELLED`
+    - `NON_TASK`
 
 > [!released]
 `sort by status.type` was introduced in Tasks 1.23.0.

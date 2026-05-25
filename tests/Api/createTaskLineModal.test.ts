@@ -5,6 +5,7 @@ import { createTaskLineModal } from '../../src/Api/createTaskLineModal';
 import { TaskModal } from '../__mocks__/TaskModal';
 
 const app = {} as App;
+const noOpOnSaveSettings = async () => {};
 
 const createNewTask = (line = ''): Task => {
     return taskFromLine({ line, path: '' });
@@ -17,14 +18,16 @@ jest.mock('../../src/Obsidian/TaskModal', () => {
                 app,
                 task,
                 onSubmit,
+                onCancel,
                 allTasks,
             }: {
                 app: App;
                 task: Task;
                 onSubmit: (updatedTasks: Task[]) => void;
+                onCancel?: () => void;
                 allTasks: Task[];
             }) => {
-                return new TaskModal({ app, task, onSubmit, allTasks });
+                return new TaskModal({ app, task, onSubmit, onCancel, allTasks });
             },
         ),
     };
@@ -39,7 +42,7 @@ describe('APIv1 - createTaskLineModal', () => {
      * When we ask to create the task line modal, it should call open() on the TaskModal instance.
      */
     it('TaskModal.open() should be called', () => {
-        createTaskLineModal(app, []);
+        createTaskLineModal(app, [], noOpOnSaveSettings);
 
         expect(TaskModal.instance.open).toHaveBeenCalledTimes(1);
     });
@@ -48,7 +51,7 @@ describe('APIv1 - createTaskLineModal', () => {
      * If the Modal returns the expected text, the api function createTaskLineModal() returns that text
      */
     it('should return the Markdown for a task if submitted', async () => {
-        const taskLinePromise = createTaskLineModal(app, []);
+        const taskLinePromise = createTaskLineModal(app, [], noOpOnSaveSettings);
         const expected = '- [ ] test';
 
         TaskModal.instance.onSubmit([createNewTask(expected)]);
@@ -61,7 +64,7 @@ describe('APIv1 - createTaskLineModal', () => {
      * If the Modal is cancelled, the api function createTaskLineModal() should return an empty string
      */
     it('should return an empty string if cancelled', async () => {
-        const taskLinePromise = createTaskLineModal(app, []);
+        const taskLinePromise = createTaskLineModal(app, [], noOpOnSaveSettings);
         const expected = '';
 
         TaskModal.instance.cancel();
@@ -72,7 +75,7 @@ describe('APIv1 - createTaskLineModal', () => {
 
     it('should pass allTasks to TaskModal', async () => {
         const allTasks = [createNewTask('- [ ] test')];
-        createTaskLineModal(app, allTasks);
+        void createTaskLineModal(app, allTasks, noOpOnSaveSettings);
 
         expect(TaskModal.instance.allTasks).toEqual(allTasks);
     });

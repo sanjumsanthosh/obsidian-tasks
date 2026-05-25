@@ -37,6 +37,7 @@ The Tasks plugin renders a task in the following structure (this refers to query
 
 ```markdown
 - Obsidian code block (div class="block-language-tasks")
+  - Toolbar (div class="plugin-tasks-toolbar")
   - Results list (ul class="plugin-tasks-query-result") OR Reading View list (ul class="contains-task-list")
     - Task (li class="task-list-item" + attributes like data-task-priority="medium" data-task-due="past-1d" + data-task="[custom_status]" + data-line="[line]")
       - Task checkbox (li class="task-list-item-checkbox")
@@ -176,9 +177,10 @@ These attributes can be used to style tasks according to their status, with the 
 ## Limitations of styling
 
 - The CSS classes and data attributes described here are **not available for markdown in Source and Live Preview modes**.
-- Specifically, the CSS classes described here are applied to:
-  - Reading mode,
-  - Tasks query blocks in Reading and Live Preview modes.
+  - Specifically, the CSS classes described here are applied to:
+    - Reading mode,
+    - Tasks query blocks in Reading and Live Preview modes.
+  - We are tracking this in issues [#3676](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3676) and [#3677](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/3677).
 - Styles **cannot access any automatic scheduled date** that is created if the [[Use Filename as Default Date]]  option is enabled.
   - We are tracking this in [issue #1947](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/1947).
 
@@ -327,6 +329,8 @@ li.task-list-item[data-task-status-type="IN_PROGRESS"] .task-list-item-checkbox 
 }
 ```
 <!-- endSnippet -->
+
+We take the view that the status type [[Status Types#ON_HOLD|ON_HOLD]] is not (yet) actionable, and so have not included that value in the snippet.
 
 For example, in Reading mode:
 

@@ -10,8 +10,36 @@ See also [[Breaking Changes]]: Tasks releases with version numbers ending `.0.0`
 
 _In recent [Tasks releases](https://github.com/obsidian-tasks-group/obsidian-tasks/releases)..._
 
+## 8.x releases
+
+- X.Y.Z:
+  - Add Turkish translation of [[Settings]], [[Editing a Status]] and [[Check your Statuses]].
+- 8.0.0:
+  - **Breaking change**:
+    - JavaScript in Tasks queries is now disabled by default.
+    - This affects `filter by function`, `sort by function`, `group by function` and any use of undocumented JavaScript expressions inside `{{...}}` placeholders.
+    - See [[JavaScript in Tasks Queries]] before deciding whether to enable it.
+
 ## 7.x releases
 
+- 7.24.0:
+  - Add [[Toggling and Editing Statuses#'Tasks Change status to...' commands|'Change status to...' commands]].
+  - Add [[Layout#Task count location|Task count location]] setting, to move task count to the top of the results.
+  - Add `task.listMarker`. See [[Filters#List Marker|List Marker filters]].
+  - Add Brazilian Portuguese translation of [[Settings]], [[Editing a Status]] and [[Check your Statuses]].
+  - Add [Integration Tests](https://publish.obsidian.md/tasks-contributing/Testing/Integration+Tests) section to the [Contributing Guide](https://publish.obsidian.md/tasks-contributing/Welcome).
+- 7.23.0:
+  - Changes to most of the Tasks [[settings]] now take immediate effect. A few remaining settings are now marked with `REQUIRES RESTART`.
+  - Add [[Status Types#ON_HOLD|ON_HOLD]] status type.
+  - Add [[Layout#Toolbar|toolbar]]  on Tasks search results, with 'Filter by description' box and 'Copy results' button.
+    - The [[Presets#Default Presets|default preset]] `hide_query_elements` now hides the toolbar. (Pre-existing Tasks settings are not updated, though.)
+  - Add [[Create or edit Task#Customising the Modal|hide fields]] facility to the 'Create or edit Task' modal, for unused fields.
+  - Add Vietnamese translation of [[Settings]], [[Editing a Status]] and [[Check your Statuses]].
+  - Update the [pull request](https://publish.obsidian.md/tasks-contributing/Contributing/Updating+code) guidelines, because of the growth in AI-generated contributions.
+- 7.22.0:
+  - Fix [[Recurring Tasks#Priority of Dates|priority of dates in recurring tasks]] when using [[Recurring Tasks#Remove scheduled date on recurrence|Remove scheduled date on recurrence]].
+  - Update the [[Obsidian Properties#How does Tasks interpret Obsidian Properties?|table of examples]] to show how to use properties with nested data and object serialisation.
+  - Add Korean translation of [[Settings]], [[Editing a Status]] and [[Check your Statuses]].
 - 7.21.0:
   - Add support for [[Links]] in custom filters, sorting and grouping.
   - The Tasks API can now edit existing task lines with [[Tasks Api#`editTaskLineModal(taskLine string) Promise<string>;`|editTaskLineModal()]].

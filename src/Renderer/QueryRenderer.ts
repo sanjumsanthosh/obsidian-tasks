@@ -21,7 +21,7 @@ import { TasksFile } from '../Scripting/TasksFile';
 import { DateFallback } from '../DateTime/DateFallback';
 import type { Task } from '../Task/Task';
 import { type BacklinksEventHandler, type EditButtonClickHandler, QueryResultsRenderer } from './QueryResultsRenderer';
-import { createAndAppendElement } from './TaskLineRenderer';
+import { TaskLineRenderer, createAndAppendElement } from './TaskLineRenderer';
 import { Settings } from 'Config/Settings';
 
 type RenderParams = { tasks: Task[]; state: State };
@@ -106,6 +106,7 @@ class QueryRenderChild extends MarkdownRenderChild {
 
     private readonly queryResultsRenderer: QueryResultsRenderer;
     private readonly debouncedRenderFn: Debouncer<[RenderParams], void>;
+    private isRendering: boolean = false;
 
     constructor({
         app,
@@ -127,6 +128,8 @@ class QueryRenderChild extends MarkdownRenderChild {
         super(container);
 
         this.app = app;
+        this.plugin = plugin;
+        this.events = events;
 
         this.queryResultsRenderer = new QueryResultsRenderer(
             this.containerEl.className,
@@ -136,12 +139,20 @@ class QueryRenderChild extends MarkdownRenderChild {
             settings,
             this,
             this.app,
+            TaskLineRenderer.obsidianMarkdownRenderer,
+            {
+                allTasks: () => this.plugin.getTasks(),
+                allMarkdownFiles: () => this.app.vault.getMarkdownFiles(),
+                backlinksClickHandler: createBacklinksClickHandler(this.app),
+                backlinksMousedownHandler: createBacklinksMousedownHandler(this.app),
+                editTaskPencilClickHandler: createEditTaskPencilClickHandler(
+                    this.app,
+                    async () => await this.plugin.saveSettings(),
+                ),
+            },
         );
 
         this.queryResultsRenderer.query.debug('[render] QueryRenderChild.constructor() entered');
-
-        this.plugin = plugin;
-        this.events = events;
 
         this.debouncedRenderFn = debounce((params: RenderParams) => this.render(params), 300, true);
     }
@@ -292,6 +303,11 @@ class QueryRenderChild extends MarkdownRenderChild {
         this.isCacheChangedSinceLastRedraw = true;
 
         requestAnimationFrame(async () => {
+            if (this.isRendering) {
+                return;
+            }
+            this.isRendering = true;
+
             // We have to wrap the rendering inside requestAnimationFrame() to ensure
             // that we get correct values for isConnected and isShown().
             if (!this.containerEl.isConnected) {
@@ -302,6 +318,7 @@ class QueryRenderChild extends MarkdownRenderChild {
                 this.queryResultsRenderer.query.debug(
                     '[render] Ignoring redraw request, as code block is not connected.',
                 );
+                this.isRendering = false;
                 return;
             }
 
@@ -312,6 +329,7 @@ class QueryRenderChild extends MarkdownRenderChild {
                 // - We are in a Tabs plugin, in a tab which is not at the front.
                 // - The user has not yet scrolled to this code block's position in the file.
                 this.queryResultsRenderer.query.debug('[render] Ignoring redraw request, as code block is not shown.');
+                this.isRendering = false;
                 return;
             }
 
@@ -319,18 +337,13 @@ class QueryRenderChild extends MarkdownRenderChild {
 
             // Our results are now up-to-date:
             this.isCacheChangedSinceLastRedraw = false;
+            this.isRendering = false;
         });
     }
 
     private async renderResults(state: State, tasks: Task[]) {
         const content = createAndAppendElement('div', this.containerEl);
-        await this.queryResultsRenderer.render(state, tasks, content, {
-            allTasks: this.plugin.getTasks(),
-            allMarkdownFiles: this.app.vault.getMarkdownFiles(),
-            backlinksClickHandler: createBacklinksClickHandler(this.app),
-            backlinksMousedownHandler: createBacklinksMousedownHandler(this.app),
-            editTaskPencilClickHandler: createEditTaskPencilClickHandler(this.app),
-        });
+        await this.queryResultsRenderer.render(state, tasks, content);
 
         this.containerEl.firstChild?.replaceWith(content);
     }
@@ -342,7 +355,7 @@ class QueryRenderChild extends MarkdownRenderChild {
     }
 }
 
-function createEditTaskPencilClickHandler(app: App): EditButtonClickHandler {
+function createEditTaskPencilClickHandler(app: App, onSaveSettings: () => Promise<void>): EditButtonClickHandler {
     return function editTaskPencilClickHandler(event: MouseEvent, task: Task, allTasks: Task[]) {
         event.preventDefault();
 
@@ -357,6 +370,7 @@ function createEditTaskPencilClickHandler(app: App): EditButtonClickHandler {
         const taskModal = new TaskModal({
             app,
             task,
+            onSaveSettings,
             onSubmit,
             allTasks,
         });
@@ -388,11 +402,11 @@ function createBacklinksMousedownHandler(app: App): BacklinksEventHandler {
         // (for regular left-click we prefer the 'click' event, and not to just do everything here, because
         // the 'click' event is more generic for touch devices etc.)
         if (ev.button === 1) {
+            ev.preventDefault();
             const result = await getTaskLineAndFile(task, app.vault);
             if (result) {
                 const [line, file] = result;
                 const leaf = app.workspace.getLeaf('tab');
-                ev.preventDefault();
                 await leaf.openFile(file, { eState: { line: line } });
             }
         }

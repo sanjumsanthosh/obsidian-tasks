@@ -22,7 +22,6 @@ import { shouldSupportFiltering } from '../TestingTools/FilterTestHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
 import { Priority } from '../../src/Task/Priority';
 import { TaskLayoutComponent } from '../../src/Layout/TaskLayoutOptions';
-import query_using_properties from '../Obsidian/__test_data__/query_using_properties.json';
 import { getTasksFileFromMockData } from '../TestingTools/MockDataHelpers';
 
 window.moment = moment;
@@ -515,6 +514,7 @@ description includes \
             'hide start date',
             'hide tags',
             'hide task count',
+            'hide toolbar',
             'hide tree',
             'hide urgency',
             'ignore global query',
@@ -540,6 +540,7 @@ description includes \
             'show start date',
             'show tags',
             'show task count',
+            'show toolbar',
             'show tree',
             'show urgency',
         ];
@@ -844,7 +845,7 @@ Problem statement:
     });
 
     describe('properties in the query file', () => {
-        const file = getTasksFileFromMockData(query_using_properties);
+        const file = getTasksFileFromMockData('query_using_properties');
 
         function makeQueryFromPropertyWithValue(propertyName: string, propertyValue: string) {
             const source = "{{query.file.property('" + propertyName + "')}}";
@@ -957,7 +958,7 @@ group by folder
                 const source = `
 filter by function \\
     if (!query.file.hasProperty('root_dirs_to_search')) { \\
-        throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
+        throw new Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
     } \\
     const roots = query.file.property('root_dirs_to_search'); \\
     return roots.includes(task.file.root);
@@ -973,12 +974,12 @@ filter by function \\
                 expect(query.explainQuery()).toMatchInlineSnapshot(`
                     "filter by function \\
                         if (!query.file.hasProperty('root_dirs_to_search')) { \\
-                            throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
+                            throw new Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); \\
                         } \\
                         const roots = query.file.property('root_dirs_to_search'); \\
                         return roots.includes(task.file.root);
                      =>
-                    filter by function if (!query.file.hasProperty('root_dirs_to_search')) { throw Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); } const roots = query.file.property('root_dirs_to_search'); return roots.includes(task.file.root);
+                    filter by function if (!query.file.hasProperty('root_dirs_to_search')) { throw new Error('Please set the "root_dirs_to_search" list property, with each value ending in a backslash...'); } const roots = query.file.property('root_dirs_to_search'); return roots.includes(task.file.root);
                     "
                 `);
 

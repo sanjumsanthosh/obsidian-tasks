@@ -105,7 +105,7 @@
         "name": "Auto-suggest task content"
       }
     },
-    "changeRequiresRestart": "Changing any settings requires a restart of obsidian.",
+    "changeRequiresRestart": "REQUIRES RESTART.",
     "dates": {
       "cancelledDate": {
         "description": "Enabling this will add a timestamp ❌ YYYY-MM-DD at the end when a task is toggled to cancelled.",
@@ -190,6 +190,9 @@
       }
     },
     "presets": {
+      "buttons": {
+        "addNewPreset": "Add new preset"
+      },
       "line1": "You can define named instructions here, that you can re-use in multiple queries. A preset called '{{name}}' can be used in Tasks queries with either '{{instruction1}}' or '{{instruction2}}'.",
       "line2": "Any open Tasks queries are reloaded automatically when presets are edited.",
       "name": "Presets"
@@ -206,6 +209,29 @@
           "line2": "This is for when you want the Start and Due dates to carry forward to the next recurrence, but you will set the Scheduled date in future, once you plan to work on it."
         },
         "name": "Remove scheduled date on recurrence"
+      }
+    },
+    "searches": {
+      "enableCustomSearches": {
+        "description": {
+          "line1": "Enables '{{filterByFunction}}', '{{sortByFunction}}', and '{{groupByFunction}}', which execute JavaScript in Tasks queries.",
+          "line2": "Malicious JavaScript in a Tasks query or Markdown file could run inside Obsidian and access or modify your vault contents, local files, or other system resources.",
+          "line3": "Only enable this if you trust the current and future contents of this vault, including files you may later download, copy, or sync from other people.",
+          "line4": "This setting is stored on this device only; enable it separately on each device where you use this vault."
+        },
+        "name": "Enable custom searches"
+      },
+      "heading": "Searches"
+    },
+    "searchResults": {
+      "heading": "Search results",
+      "taskCountLocation": {
+        "description": "Choose whether the task count is shown at the top or bottom of query results.",
+        "name": "Task count location",
+        "options": {
+          "bottom": "Bottom",
+          "top": "Top"
+        }
       }
     },
     "seeTheDocumentation": "See the documentation",
