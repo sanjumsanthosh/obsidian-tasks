@@ -35,6 +35,18 @@ By default, all fields are displayed.
 > [!released]
 > Hiding unused fields was introduced in Tasks 7.23.0.
 
+You can also change the order of the fields in the modal. The fields are in groups: priority, the dates when the task happens, dependencies, and status with its dates. In the Gear modal:
+
+- Drag the handle on the left of a group to move the whole group.
+- Drag the handle on the right of a field to move it within its group. Fields cannot be moved to another group.
+- Alternatively, focus a handle with the `Tab` key and press the `Up` or `Down` arrow key.
+- Click **Reset order** to go back to the default order.
+
+The `Tab` key moves through the fields in the modal in the same order.
+
+> [!released]
+> Reordering fields was introduced in Tasks X.Y.Z.
+
 ## Keyboard shortcuts
 
 > [!released]
@@ -293,6 +305,22 @@ If the [custom hotkey](https://help.obsidian.md/Customization/Custom+hotkeys) fo
 For example, making `Alt + O` (Linux and Windows) or `Ctrl + Opt + O` (Mac) will mean that when the modal opens, the `Lowest` priority is selected, instead of `Normal`.
 
 We are tracking this in [issue #2503](https://github.com/obsidian-tasks-group/obsidian-tasks/issues/2503).
+
+## Support
+
+Before creating a new bug report or feature request about Create or edit Task, please check existing items to avoid duplicates.
+
+You do not need to search manually: the links below are already filtered to the label `"scope: edit task"`.
+
+- Check both Open and Closed items.
+- If you find an existing item, support it there instead of adding a `+1` comment. See [[About Support and Help#How to support an existing request|How to support an existing request]].
+
+| Type | Open | Closed | Notes |
+| --- | --- | --- | --- |
+| Issues | [Open](https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aopen%20label%3A%22scope%3A+edit+task%22%20is%3Aissue%20) | [Closed](https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aclosed%20label%3A%22scope%3A+edit+task%22%20is%3Aissue%20) | bug reports and feature requests |
+| Discussions | [Open](https://github.com/obsidian-tasks-group/obsidian-tasks/discussions/categories/ideas-any-new-feature-requests-go-in-issues-please?discussions_q=is%3Aopen+label%3A%22scope%3A+edit+task%22+category%3A%22Ideas%3A+Any+New+Feature+Requests+go+in+Issues+please%22+sort%3Atop) | [Closed](https://github.com/obsidian-tasks-group/obsidian-tasks/discussions/categories/ideas-any-new-feature-requests-go-in-issues-please?discussions_q=is%3Aclosed+label%3A%22scope%3A+edit+task%22+category%3A%22Ideas%3A+Any+New+Feature+Requests+go+in+Issues+please%22+sort%3Atop) | older feature discussions from before late 2022 |
+
+If you do not find an existing item in Issues or Discussions, see [[About Support and Help]] for how to report a bug or request a feature.
 
 ## Use this modal in scripts and other plugins
 

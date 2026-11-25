@@ -1,8 +1,9 @@
-import { type ConfigModifier, Options } from 'approvals/lib/Core/Options';
-import { verify } from 'approvals/lib/Providers/Jest/JestApprovals';
-
-import { JestReporter } from 'approvals/lib/Providers/Jest/JestReporter';
-// import { AutoApprovingReporter } from './AutoApprovingReporter';
+import { type ConfigModifier, Options } from '@approval-tests/approvals/lib/Core/Options';
+import { VitestReporter } from '@approval-tests/approvals/lib/Providers/Vitest/VitestReporter';
+import { verify } from '@approval-tests/approvals/lib/Providers/Vitest/VitestApprovals';
+import type { Command } from 'obsidian';
+import { MarkdownTable } from 'lib/MarkdownTable';
+import { addBackticks } from '../Scripting/ScriptingTestHelpers';
 
 export function verifyMarkdown(output: string) {
     let options = new Options();
@@ -13,20 +14,20 @@ export function verifyMarkdown(output: string) {
     const configModifier: ConfigModifier = (c) => {
         c.reporters = [
             /*
-                Uncomment AutoApprovingReporter() if you want to auto-fix
-                any failing ApprovalTest tests.
+                To auto-fix any failing ApprovalTest tests, set
+                `forceApproveAll: true` in the `~/.approvalsConfig` file.
                 YOU MUST THEN REVIEW THE DIFFERENCES CAREFULLY, before committing.
+                You probably should set `forceApproveAll: false` afterwards.
             */
-            // new AutoApprovingReporter(),
             //-----------------
             // Built-in reporters listed at:
             // https://github.com/approvals/Approvals.NodeJS#built-in-reporters
             'vscode', // VS Code diff works well with files containing emojis
             //-----------------
-            // Last one is jest reporter, that writes diffs to console in
+            // Last one is the Vitest reporter, that writes diffs to console in
             // Continuous Integration builds, such as GitHub Actions,
             // or when the development environment has no supported diff tools.
-            new JestReporter(),
+            new VitestReporter(),
         ];
         return c;
     };
@@ -46,4 +47,19 @@ export function verifyMarkdownForDocs(markdown: string) {
     output += '\n\n<!-- placeholder to force blank line after included text -->\n';
 
     verifyMarkdown(output);
+}
+
+export function verifyCommandsAsMarkdownForDocs(commands: Command[]): void {
+    const markdownTable = new MarkdownTable(['Name', 'ID']);
+    commands.forEach((command) => {
+        markdownTable.addRow(
+            [
+                // split lines
+                'Tasks: ' + command.name,
+                'obsidian-tasks-plugin:' + command.id,
+            ].map((text) => addBackticks(text)),
+        );
+    });
+
+    verifyMarkdownForDocs(markdownTable.markdown);
 }

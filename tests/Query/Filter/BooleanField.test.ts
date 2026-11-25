@@ -1,15 +1,12 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
-import { BooleanField } from '../../../src/Query/Filter/BooleanField';
-import type { FilterOrErrorMessage } from '../../../src/Query/Filter/FilterOrErrorMessage';
-import { TaskBuilder } from '../../TestingTools/TaskBuilder';
+import { BooleanField } from 'Query/Filter/BooleanField';
+import type { FilterOrErrorMessage } from 'Query/Filter/FilterOrErrorMessage';
+import { Query } from 'Query/Query';
+import { Explainer } from 'Query/Explain/Explainer';
+import { BooleanPreprocessor } from 'Query/Filter/BooleanPreprocessor';
 import { testFilter } from '../../TestingTools/FilterTestHelpers';
-import { Query } from '../../../src/Query/Query';
-import { Explainer } from '../../../src/Query/Explain/Explainer';
-import { BooleanPreprocessor } from '../../../src/Query/Filter/BooleanPreprocessor';
-import { TasksFile } from '../../../src/Scripting/TasksFile';
+import { TaskBuilder } from '../../TestingTools/TaskBuilder';
+import { createTestTasksFile } from '../../TestingTools/TasksFileHelpers';
 import { verifyBooleanExpressionExplanation, verifyBooleanExpressionPreprocessing } from './BooleanFieldVerify';
 
 window.moment = moment;
@@ -274,17 +271,17 @@ describe('boolean query - filter', () => {
 
 describe('boolean query - explain', () => {
     beforeAll(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-04-07'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2024-04-07'));
     });
 
     afterAll(() => {
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     function explainFilters(indentationLevel: number, source: string) {
         const indentation = ' '.repeat(indentationLevel);
-        const tasksFile = new TasksFile('some/sample/note.md');
+        const tasksFile = createTestTasksFile('some/sample/note.md');
         const query1 = new Query(source, tasksFile);
         return new Explainer(indentation).explainFilters(query1);
     }
@@ -351,12 +348,12 @@ describe('boolean query - explain', () => {
 
 describe('boolean query - exhaustive tests', () => {
     beforeAll(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-03-28'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2024-03-28'));
     });
 
     afterAll(() => {
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     it('preprocess - split line', () => {

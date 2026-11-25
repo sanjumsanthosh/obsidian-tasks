@@ -1,30 +1,27 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
 
-import { FunctionField } from '../../../src/Query/Filter/FunctionField';
-import { Status } from '../../../src/Statuses/Status';
-import type { Task } from '../../../src/Task/Task';
-import {
-    toGroupTaskFromBuilder,
-    toGroupTaskUsingSearchInfo,
-    toGroupTaskWithPath,
-} from '../../CustomMatchers/CustomMatchersForGrouping';
-import { TaskBuilder } from '../../TestingTools/TaskBuilder';
-import { SearchInfo } from '../../../src/Query/SearchInfo';
+import { FunctionField } from 'Query/Filter/FunctionField';
+import { Status } from 'Statuses/Status';
+import type { Task } from 'Task/Task';
+import { SearchInfo } from 'Query/SearchInfo';
+import { Query } from 'Query/Query';
+import { TasksDate } from 'DateTime/TasksDate';
+import { Priority } from 'Task/Priority';
+import { EnableJsInTasksQueries } from 'Config/EnableJsInTasksQueries';
+import { fromLine } from '../../TestingTools/TestHelpers';
 import {
     expectTaskComparesAfter,
     expectTaskComparesBefore,
     expectTaskComparesEqual,
 } from '../../CustomMatchers/CustomMatchersForSorting';
-import { fromLine } from '../../TestingTools/TestHelpers';
-import { Query } from '../../../src/Query/Query';
-import { TasksDate } from '../../../src/DateTime/TasksDate';
-import { Priority } from '../../../src/Task/Priority';
-import { TasksFile } from '../../../src/Scripting/TasksFile';
-import { EnableJsInTasksQueries } from '../../../src/Config/EnableJsInTasksQueries';
+import { TaskBuilder } from '../../TestingTools/TaskBuilder';
+import {
+    toGroupTaskFromBuilder,
+    toGroupTaskUsingSearchInfo,
+    toGroupTaskWithPath,
+} from '../../CustomMatchers/CustomMatchersForGrouping';
 import { expectQueryErrorToMentionDisabledJavaScript } from '../../Scripting/ScriptingTestHelpers';
+import { createTestTasksFile } from '../../TestingTools/TasksFileHelpers';
 
 window.moment = moment;
 
@@ -38,8 +35,8 @@ const tomorrowDate = new TasksDate(moment(tomorrow));
 const undated = new TasksDate(null);
 
 beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(today));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(today));
 });
 
 // -----------------------------------------------------------------------------------------------------------------
@@ -94,7 +91,7 @@ describe('FunctionField - filtering', () => {
             'filter by function task.file.path === query.file.path',
         );
         expect(tasksInSameFileAsQuery).toBeValid();
-        const queryTasksFile = new TasksFile('/a/b/query.md');
+        const queryTasksFile = createTestTasksFile('/a/b/query.md');
 
         const taskInQueryFile: Task = new TaskBuilder().path(queryTasksFile.path).build();
         const taskNotInQueryFile: Task = new TaskBuilder().path('some other path.md').build();
@@ -479,7 +476,7 @@ The error message was:
 // -----------------------------------------------------------------------------------------------------------------
 
 afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
 });
 
 function createGrouper(line: string) {
@@ -652,8 +649,11 @@ describe('FunctionField - grouping - example functions', () => {
         const line = 'group by function query.file.filename';
         const grouper = createGrouper(line);
         const task = new TaskBuilder().build();
-        toGroupTaskUsingSearchInfo(grouper, task, new SearchInfo(new TasksFile('queries/query file.md'), [task]), [
-            'query file.md',
-        ]);
+        toGroupTaskUsingSearchInfo(
+            grouper,
+            task,
+            new SearchInfo(createTestTasksFile('queries/query file.md'), [task]),
+            ['query file.md'],
+        );
     });
 });

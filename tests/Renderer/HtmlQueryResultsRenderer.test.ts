@@ -1,17 +1,25 @@
 import moment from 'moment/moment';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-import { GlobalQuery } from '../../src/Config/GlobalQuery';
-import { resetSettings, updateSettings } from '../../src/Config/Settings';
-import { State } from '../../src/Obsidian/Cache';
-import type { Query } from '../../src/Query/Query';
-import { getQueryForQueryRenderer } from '../../src/Query/QueryRendererHelper';
-import { HtmlQueryResultsRenderer } from '../../src/Renderer/HtmlQueryResultsRenderer';
-import { TasksFile } from '../../src/Scripting/TasksFile';
-import type { Task } from '../../src/Task/Task';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { GlobalQuery } from 'Config/GlobalQuery';
+import { resetSettings, updateSettings } from 'Config/Settings';
+import { State } from 'Obsidian/Cache';
+import { getQueryForQueryRenderer } from 'Query/QueryRendererHelper';
+import { HtmlQueryResultsRenderer } from 'Renderer/HtmlQueryResultsRenderer';
+import type { TasksFile } from 'Scripting/TasksFile';
+import type { Task } from 'Task/Task';
+import { PostponeMenu } from 'ui/Menus/PostponeMenu';
 import { mockApp } from '../__mocks__/obsidian';
 import { readTasksFromSimulatedFile } from '../Obsidian/SimulatedFile';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
-import { makeHtmlQueryRendererParameters, mockHTMLRenderer, verifyRenderedTasks } from './RenderingTestHelpers';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
+import { fromMarkdown } from '../TestingTools/TestHelpers';
+import {
+    makeHtmlQueryRendererParameters,
+    mockHTMLRenderer,
+    renderTasks,
+    verifyHtmlFromRenderer,
+    verifyRenderedTasks,
+} from './RenderingTestHelpers';
 
 window.moment = moment;
 
@@ -31,43 +39,79 @@ function makeHtmlRenderer(source: string, tasksFile: TasksFile, allTasks: Task[]
     return { query, renderer };
 }
 
-async function verifyRenderedHtml(allTasks: Task[], source: string, state: State = State.Warm) {
-    const tasksFile = new TasksFile('query.md');
+async function verifyRenderedHtml(
+    allTasks: Task[],
+    source: string,
+    state: State = State.Warm,
+): Promise<HTMLDivElement> {
+    const tasksFile = createTestTasksFile('query.md');
     const { query, renderer } = makeHtmlRenderer(source, tasksFile, allTasks);
-
-    const container = document.createElement('div');
-    renderer.content = container;
-    await renderer.renderQuery(state, query.applyQueryToTasks(allTasks));
-
-    verifyRenderedTasks(container, allTasks);
+    return await verifyHtmlFromRenderer(renderer, state, query, allTasks);
 }
 
-async function renderTasks(
-    state: State,
-    renderer: HtmlQueryResultsRenderer,
-    allTasks: Task[],
-    query: Query,
-): Promise<HTMLDivElement> {
-    const container = document.createElement('div');
+type RenderedTaskBacklink = {
+    description: string;
+    nestingLevel: number;
+    backlinkText: string | null;
+};
 
-    renderer.content = container;
-    await renderer.renderQuery(state, query.applyQueryToTasks(allTasks));
-    return container;
+function renderedTaskNestingLevel(li: Element) {
+    let nestingLevel = 0;
+    let parentListItem = li.parentElement?.closest('li');
+
+    while (parentListItem !== null && parentListItem !== undefined) {
+        nestingLevel += 1;
+        parentListItem = parentListItem.parentElement?.closest('li');
+    }
+
+    return nestingLevel;
+}
+
+function renderedTaskBacklinks(container: HTMLElement) {
+    return Array.from(container.querySelectorAll('li.task-list-item')).map((li) => ({
+        description: li.querySelector(':scope > .tasks-list-text .task-description')?.textContent?.trim() ?? '',
+        nestingLevel: renderedTaskNestingLevel(li),
+        backlinkText: li.querySelector(':scope > .task-extras > .tasks-backlink')?.textContent?.trim() ?? null,
+    }));
+}
+
+function expectRenderedTaskBacklinks(container: HTMLElement, expected: RenderedTaskBacklink[]) {
+    expect(renderedTaskBacklinks(container)).toEqual(expected);
 }
 
 beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2023-07-05'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2023-07-05'));
 });
 
 afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     GlobalFilter.getInstance().reset();
     GlobalQuery.getInstance().reset();
     resetSettings();
 });
 
 describe('HtmlQueryResultsRenderer tests', () => {
+    it.each([
+        [0, 'Due today'],
+        [3, 'Due in 3 days'],
+    ])('uses the configured postpone offset of %i days', async (amount, tooltip) => {
+        updateSettings({ defaultDaysToSkipDue: amount });
+        const tasks = fromMarkdown('- [ ] Task to postpone 📅 2023-07-04');
+        const { query, renderer } = makeHtmlRenderer('', createTestTasksFile('query.md'), tasks);
+        const container = await renderTasks(State.Warm, renderer, tasks, query);
+        const button = container.querySelector<HTMLAnchorElement>('.tasks-postpone')!;
+        const postpone = vi.spyOn(PostponeMenu, 'postponeOnClickCallback').mockResolvedValue(undefined);
+
+        try {
+            expect(button.title).toContain(tooltip);
+            button.click();
+            expect(postpone).toHaveBeenCalledWith(button, tasks[0], amount, 'days');
+        } finally {
+            postpone.mockRestore();
+        }
+    });
+
     it('loading message', async () => {
         const allTasks = [TaskBuilder.createFullyPopulatedTask()];
         await verifyRenderedHtml(allTasks, 'show urgency', State.Initializing);
@@ -167,6 +211,24 @@ group by function 'level4'
         );
     });
 
+    it('should write group task count, if enabled', async () => {
+        const tasks = fromMarkdown(`
+- [ ] 1 ⏳ 2025-10-29
+- [ ] 2 ⏬
+- [ ] 3 ⏫ ⏳ 2025-10-30
+- [ ] 4 ⏳ 2025-10-29
+`);
+
+        await verifyRenderedHtml(
+            tasks,
+            `
+group by priority
+group by scheduled
+show group count
+`,
+        );
+    });
+
     it('should allow a task to be in multiple groups', async () => {
         const allTasks = [TaskBuilder.createFullyPopulatedTask()];
         await verifyRenderedHtml(allTasks, "group by function ['heading a', 'heading b']");
@@ -177,6 +239,147 @@ group by function 'level4'
             'inheritance_1parent2children2grandchildren1sibling_start_with_heading',
         );
         await verifyRenderedHtml(allTasks, 'show tree');
+    });
+
+    describe('nested backlinks', () => {
+        const allTasks = () =>
+            readTasksFromSimulatedFile('inheritance_1parent2children2grandchildren1sibling_start_with_heading');
+        const sortByLineNumber = 'sort by function task.lineNumber\n';
+
+        it('show tree and hide nested backlink', async () => {
+            // Top-level tasks (parent and sibling) keep their full backlink,
+            // and nested tasks have their backlink hidden.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                showTree + sortByLineNumber + 'hide nested backlink',
+            );
+
+            const fullBacklinkText =
+                '(inheritance_1parent2children2grandchildren1sibling_start_with_heading > Test heading)';
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task child task 1', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 1', nestingLevel: 2, backlinkText: null },
+                { description: '#task child task 2', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 2', nestingLevel: 2, backlinkText: null },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: fullBacklinkText },
+            ]);
+        });
+
+        it('show tree and show nested backlink', async () => {
+            // 'show nested backlink' is the default: all tasks show their backlink,
+            // exactly as if the instruction was absent. This must never change.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                showTree + sortByLineNumber + 'show nested backlink',
+            );
+
+            const fullBacklinkText =
+                '(inheritance_1parent2children2grandchildren1sibling_start_with_heading > Test heading)';
+
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task child task 1', nestingLevel: 1, backlinkText: fullBacklinkText },
+                { description: '#task grandchild 1', nestingLevel: 2, backlinkText: fullBacklinkText },
+                { description: '#task child task 2', nestingLevel: 1, backlinkText: fullBacklinkText },
+                { description: '#task grandchild 2', nestingLevel: 2, backlinkText: fullBacklinkText },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: fullBacklinkText },
+            ]);
+        });
+
+        it('hide tree and hide nested backlink - flat is a no-op', async () => {
+            // Without 'show tree' there are no nested tasks, so 'hide nested backlink'
+            // changes nothing: all tasks keep their full backlink. This must never change.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                hideTree + sortByLineNumber + 'hide nested backlink',
+            );
+
+            const fullBacklinkText =
+                '(inheritance_1parent2children2grandchildren1sibling_start_with_heading > Test heading)';
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task child task 1', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task grandchild 1', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task child task 2', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task grandchild 2', nestingLevel: 0, backlinkText: fullBacklinkText },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: fullBacklinkText },
+            ]);
+        });
+
+        it('show tree, hide backlink and show nested backlink - hide backlink is stronger', async () => {
+            // 'hide backlink' hides all backlinks, and 'show nested backlink' (the default)
+            // cannot re-show them: 'show tree + hide backlink' queries written before
+            // 'nested backlink' existed must keep hiding all backlinks. This must never change.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                showTree + sortByLineNumber + 'hide backlink\nshow nested backlink',
+            );
+
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: null },
+                { description: '#task child task 1', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 1', nestingLevel: 2, backlinkText: null },
+                { description: '#task child task 2', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 2', nestingLevel: 2, backlinkText: null },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: null },
+            ]);
+        });
+
+        it('show tree, hide backlink and hide nested backlink', async () => {
+            // Both instructions hide backlinks, so no backlinks are shown anywhere.
+            // This must never change.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                showTree + sortByLineNumber + 'hide backlink\nhide nested backlink',
+            );
+
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: null },
+                { description: '#task child task 1', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 1', nestingLevel: 2, backlinkText: null },
+                { description: '#task child task 2', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 2', nestingLevel: 2, backlinkText: null },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: null },
+            ]);
+        });
+
+        it('show tree, short mode and hide nested backlink', async () => {
+            // Top-level tasks keep their short-mode 🔗 backlink,
+            // and nested tasks have their backlink hidden.
+            const container = await verifyRenderedHtml(
+                allTasks(),
+                showTree + sortByLineNumber + 'short mode\nhide nested backlink',
+            );
+
+            expectRenderedTaskBacklinks(container, [
+                { description: '#task parent task', nestingLevel: 0, backlinkText: '🔗' },
+                { description: '#task child task 1', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 1', nestingLevel: 2, backlinkText: null },
+                { description: '#task child task 2', nestingLevel: 1, backlinkText: null },
+                { description: '#task grandchild 2', nestingLevel: 2, backlinkText: null },
+                { description: '#task sibling', nestingLevel: 0, backlinkText: '🔗' },
+            ]);
+        });
+
+        it('should hide backlinks on nested tasks with "hide nested backlink"', async () => {
+            const source = showTree + sortByLineNumber + 'hide nested backlink';
+            const { renderer, query } = makeHtmlRenderer(source, createTestTasksFile('query.md'), allTasks());
+            const container = await renderTasks(State.Warm, renderer, allTasks(), query);
+
+            const backlinkOf = (li: Element) => li.querySelector(':scope > .task-extras > .tasks-backlink');
+            const listItems = Array.from(container.querySelectorAll('li'));
+            const topLevelItems = listItems.filter((li) => li.parentElement?.closest('li') === null);
+            const nestedItems = listItems.filter((li) => !topLevelItems.includes(li));
+
+            // Top-level tasks (parent and sibling) keep their backlink:
+            expect(topLevelItems).toHaveLength(2);
+            topLevelItems.forEach((li) => expect(backlinkOf(li)).not.toBeNull());
+
+            // Nested tasks (children and grandchildren) have their backlink hidden:
+            expect(nestedItems).toHaveLength(4);
+            nestedItems.forEach((li) => expect(backlinkOf(li)).toBeNull());
+        });
     });
 
     it('should render grandchildren once under the parent', async () => {
@@ -205,7 +408,7 @@ sort by function reverse task.lineNumber
 });
 
 describe('Reusing HtmlQueryResultsRenderer', () => {
-    const tasksFile = new TasksFile('anywhere.md');
+    const tasksFile = createTestTasksFile('anywhere.md');
 
     it('should render the same thing twice - tree', async () => {
         const allTasks = readTasksFromSimulatedFile(
@@ -215,10 +418,10 @@ describe('Reusing HtmlQueryResultsRenderer', () => {
         const { renderer, query } = makeHtmlRenderer(source, tasksFile, allTasks);
 
         const container = await renderTasks(State.Warm, renderer, allTasks, query);
-        verifyRenderedTasks(container, allTasks);
+        await verifyRenderedTasks(container, allTasks);
 
         const rerenderedContainer = await renderTasks(State.Warm, renderer, allTasks, query);
-        verifyRenderedTasks(rerenderedContainer, allTasks);
+        await verifyRenderedTasks(rerenderedContainer, allTasks);
     });
 
     it('should render the same thing twice - flat', async () => {
@@ -229,15 +432,15 @@ describe('Reusing HtmlQueryResultsRenderer', () => {
         const { renderer, query } = makeHtmlRenderer(source, tasksFile, allTasks);
 
         const container = await renderTasks(State.Warm, renderer, allTasks, query);
-        verifyRenderedTasks(container, allTasks);
+        await verifyRenderedTasks(container, allTasks);
 
         const rerenderedContainer = await renderTasks(State.Warm, renderer, allTasks, query);
-        verifyRenderedTasks(rerenderedContainer, allTasks);
+        await verifyRenderedTasks(rerenderedContainer, allTasks);
     });
 });
 
 describe('HtmlQueryResultsRenderer - task count location setting', () => {
-    const tasksFile = new TasksFile('query.md');
+    const tasksFile = createTestTasksFile('query.md');
     const source = 'hide toolbar\nhide backlinks\nhide edit button';
     const allTasks = readTasksFromSimulatedFile('inheritance_1parent1child');
 
@@ -282,13 +485,14 @@ describe('HtmlQueryResultsRenderer - internal heading links', () => {
     beforeAll(() => {
         const allTasks = readTasksFromSimulatedFile('internal_heading_links');
 
-        tasksByHeading = allTasks.reduce((acc, task) => {
-            const heading = task.taskLocation.precedingHeader ?? '';
+        tasksByHeading = allTasks.reduce(
+            (acc, task) => {
+                const heading = task.taskLocation.precedingHeader ?? '';
 
-            // For now, the test design only supports one task per heading, so make it an error
-            // if there are multiple tasks in this heading:
-            if (acc[heading]) {
-                throw new Error(`Multiple tasks found under the heading: "${heading}".
+                // For now, the test design only supports one task per heading, so make it an error
+                // if there are multiple tasks in this heading:
+                if (acc[heading]) {
+                    throw new Error(`Multiple tasks found under the heading: "${heading}".
 The test design only supports one task per heading currently, so this is an error.
 
 Edit "${task.path}" to move one of these lines to a separate heading:
@@ -299,16 +503,18 @@ And then rerun the command "Templater: Insert _meta/templates/convert_test_data_
 
 For more info: https://publish.obsidian.md/tasks-contributing/Testing/Using+Obsidian+API+in+tests
 `);
-            }
+                }
 
-            acc[heading] = task;
-            return acc;
-        }, {} as Record<string, Task>);
+                acc[heading] = task;
+                return acc;
+            },
+            {} as Record<string, Task>,
+        );
     });
 
     async function renderTask(task: Task, queryFilePath: string = 'query.md') {
         const allTasks = [task];
-        const { renderer, query } = makeHtmlRenderer('', new TasksFile(queryFilePath), allTasks);
+        const { renderer, query } = makeHtmlRenderer('', createTestTasksFile(queryFilePath), allTasks);
         const container = document.createElement('div');
 
         renderer.content = container;

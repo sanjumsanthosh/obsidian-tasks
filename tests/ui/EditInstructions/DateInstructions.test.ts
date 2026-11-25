@@ -1,23 +1,22 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
 
 import type { unitOfTime } from 'moment/moment';
-import { TaskBuilder } from '../../TestingTools/TaskBuilder';
 import {
     RemoveTaskDate,
     SetRelativeTaskDate,
     SetTaskDate,
     allHappensDateInstructions,
     allLifeCycleDateInstructions,
-} from '../../../src/ui/EditInstructions/DateInstructions';
-import type { AllTaskDateFields } from '../../../src/DateTime/DateFieldTypes';
-import { Task } from '../../../src/Task/Task';
-import { TaskLayoutComponent } from '../../../src/Layout/TaskLayoutOptions';
-import { TasksDate } from '../../../src/DateTime/TasksDate';
-import { SEPARATOR_INSTRUCTION_DISPLAY_NAME } from '../../../src/ui/EditInstructions/MenuDividerInstruction';
-import type { TaskEditingInstruction } from '../../../src/ui/EditInstructions/TaskEditingInstruction';
+    createEditingInstructionForDateGroups,
+} from 'ui/EditInstructions/DateInstructions';
+import type { AllTaskDateFields } from 'DateTime/DateFieldTypes';
+import { Task } from 'Task/Task';
+import { TaskLayoutComponent } from 'Layout/TaskLayoutOptions';
+import { TasksDate } from 'DateTime/TasksDate';
+import { SEPARATOR_INSTRUCTION_DISPLAY_NAME } from 'ui/EditInstructions/MenuDividerInstruction';
+import type { TaskEditingInstruction } from 'ui/EditInstructions/TaskEditingInstruction';
+import { TaskBuilder } from '../../TestingTools/TaskBuilder';
+import { fromMarkdown } from '../../TestingTools/TestHelpers';
 
 window.moment = moment;
 
@@ -26,12 +25,12 @@ const today = '2024-10-01';
 const tomorrow = '2024-10-02';
 
 beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(today));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(today));
 });
 
 afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
 });
 
 const taskWithNoDates = new TaskBuilder().build();
@@ -176,6 +175,7 @@ describe('RemoveTaskDate', () => {
 
 describe('DateInstruction lists', () => {
     function applyAllInstructions(
+        // NEW_TASK_FIELD_EDIT_REQUIRED - if it's a date field
         field:
             | TaskLayoutComponent.DueDate
             | TaskLayoutComponent.ScheduledDate
@@ -373,5 +373,42 @@ describe('DateInstruction lists', () => {
                   Remove cancelled date => No Date"
             `);
         });
+    });
+});
+
+describe('Creating Editing Instruction', () => {
+    function taskWithInstructionApplied(instruction: TaskEditingInstruction | null, taskToEdit: Task): Task {
+        const newTasks = instruction!.apply(taskToEdit);
+        expect(newTasks).toHaveLength(1);
+        return newTasks[0];
+    }
+
+    it('should create an instruction that copies a task due date', () => {
+        const sampleTask = new TaskBuilder().dueDate(today).build();
+        const instruction = createEditingInstructionForDateGroups('dueDate', sampleTask);
+        expect(instruction).not.toBeNull();
+
+        const taskToEdit = new TaskBuilder().build();
+        const newTask = taskWithInstructionApplied(instruction, taskToEdit);
+
+        expect(newTask.dueDate).toEqualMoment(moment(today));
+    });
+
+    it('should create an instruction that removes a date', () => {
+        const undatedTask = new TaskBuilder().build();
+        const instruction = createEditingInstructionForDateGroups('startDate', undatedTask);
+        expect(instruction).not.toBeNull();
+
+        const taskToEdit = new TaskBuilder().startDate(today).build();
+        const newTask = taskWithInstructionApplied(instruction, taskToEdit);
+
+        expect(newTask.startDate).toBeNull();
+    });
+
+    it('should refuse to copy an invalid date', () => {
+        const invalidDoneDateTask = fromMarkdown('- [ ] Something ✅ 2026-13-42')[0];
+        const instruction = createEditingInstructionForDateGroups('doneDate', invalidDoneDateTask);
+
+        expect(instruction).toBeNull();
     });
 });

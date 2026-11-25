@@ -1,13 +1,10 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
-import { Query } from '../../src/Query/Query';
-import { explainResults, getQueryForQueryRenderer } from '../../src/Query/QueryRendererHelper';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-import { GlobalQuery } from '../../src/Config/GlobalQuery';
-import { TasksFile } from '../../src/Scripting/TasksFile';
+import { Query } from 'Query/Query';
+import { explainResults, getQueryForQueryRenderer } from 'Query/QueryRendererHelper';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { GlobalQuery } from 'Config/GlobalQuery';
 import { getTasksFileFromMockData } from '../TestingTools/MockDataHelpers';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 
 window.moment = moment;
 
@@ -69,7 +66,8 @@ describe('explain', () => {
 
             Explanation of the Query File Defaults (from properties/frontmatter in the query's file):
 
-              not done
+              not done =>
+                status type is TODO or IN_PROGRESS or ON_HOLD
 
               show toolbar
 
@@ -207,7 +205,7 @@ describe('query used for QueryRenderer', () => {
         // Arrange
         const querySource = 'description includes world';
         const globalQuerySource = 'description includes hello';
-        const tasksFile = new TasksFile('a/b/c.md');
+        const tasksFile = createTestTasksFile('a/b/c.md');
 
         // Act
         const globalQuery = new GlobalQuery(globalQuerySource);
@@ -221,7 +219,7 @@ describe('query used for QueryRenderer', () => {
     it('should ignore the global query if "ignore global query" is set', () => {
         // Arrange
         const globalQuery = new GlobalQuery('path includes from_global_query');
-        const tasksFile = new TasksFile('a/b/c.md');
+        const tasksFile = createTestTasksFile('a/b/c.md');
 
         // Act
         const query = getQueryForQueryRenderer(

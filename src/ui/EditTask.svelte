@@ -9,7 +9,7 @@
     import DateEditor from './DateEditor.svelte';
     import Dependency from './Dependency.svelte';
     import { EditableTask } from './EditableTask';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
+    import { focusOnceClearOfKeyboard, labelContentWithAccessKey } from './EditTaskHelpers';
     import PriorityEditor from './PriorityEditor.svelte';
     import RecurrenceEditor from './RecurrenceEditor.svelte';
     import StatusEditor from './StatusEditor.svelte';
@@ -63,6 +63,7 @@
     $: isDescriptionValid = editableTask.description.trim() !== '';
 
     $: isShownInEditModal = { ...defaultEditModalShowSettings, ...$settingsStore.isShownInEditModal };
+    $: fieldGroups = $settingsStore.editModalFieldOrder;
 
     onMount(() => {
         settingsStore.set(getSettings());
@@ -72,9 +73,9 @@
 
         mountComplete = true;
 
-        setTimeout(() => {
-            descriptionInput.focus();
-        }, 10);
+        // Put the cursor in the Description field, ready to type. On a phone this has to wait for
+        // the modal to finish sliding up first, or the keyboard drags the form down with it
+        focusOnceClearOfKeyboard(descriptionInput);
     });
 
     const _onClose = () => {
@@ -152,192 +153,223 @@ Availability of access keys:
             accesskey={accesskey('t')}
             on:keydown={_onDescriptionKeyDown}
             on:paste={_removeLinebreaksFromDescription}
-            on:drop={_removeLinebreaksFromDescription}
-        />
+            on:drop={_removeLinebreaksFromDescription}></textarea>
     </section>
 
-    <!-- --------------------------------------------------------------------------- -->
-    <!--  Priority  -->
-    <!-- --------------------------------------------------------------------------- -->
-    {#if isShownInEditModal.priority}
-        <section class="tasks-modal-priority-section">
-            <PriorityEditor bind:priority={editableTask.priority} {withAccessKeys} />
-        </section>
-        <hr id="line-after-priority" />
-    {/if}
-
-    <!-- --------------------------------------------------------------------------- -->
-    <!--  Dates  -->
-    <!-- --------------------------------------------------------------------------- -->
-    <section class="tasks-modal-dates-section">
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Recurrence  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.recurrence}
-            <RecurrenceEditor {editableTask} bind:isRecurrenceValid accesskey={accesskey('r')} />
-        {/if}
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Due Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.due}
-            <DateEditor
-                id="due"
-                dateSymbol={dueDateSymbol}
-                bind:date={editableTask.dueDate}
-                bind:isDateValid={isDueDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('d')}
-            />
-        {/if}
-
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Scheduled Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.scheduled}
-            <DateEditor
-                id="scheduled"
-                dateSymbol={scheduledDateSymbol}
-                bind:date={editableTask.scheduledDate}
-                bind:isDateValid={isScheduledDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('s')}
-            />
-        {/if}
-
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Start Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.start}
-            <DateEditor
-                id="start"
-                dateSymbol={startDateSymbol}
-                bind:date={editableTask.startDate}
-                bind:isDateValid={isStartDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('a')}
-            />
-        {/if}
-
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Only future dates  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.due || isShownInEditModal.scheduled || isShownInEditModal.start}
-            <div class="future-dates-only" id="only-future-dates">
-                <label for="forwardOnly">{@html labelContentWithAccessKey('Only future dates:', accesskey('f'))}</label>
-                <!-- svelte-ignore a11y-accesskey -->
-                <input
-                    bind:checked={editableTask.forwardOnly}
-                    id="forwardOnly"
-                    type="checkbox"
-                    class="task-list-item-checkbox tasks-modal-checkbox"
-                    accesskey={accesskey('f')}
-                />
-            </div>
-        {/if}
-    </section>
-    {#if isShownInEditModal.due || isShownInEditModal.scheduled || isShownInEditModal.start}
-        <hr id="line-after-happens-dates" />
-    {/if}
-
-    <!-- --------------------------------------------------------------------------- -->
-    <!--  Dependencies  -->
-    <!-- --------------------------------------------------------------------------- -->
-    <section class="tasks-modal-dependencies-section">
-        {#if allTasks.length > 0 && mountComplete}
+    <!--
+    The groups below, and the fields within each group, are rendered in the order
+    chosen by the user in OptionsModal. Rendering them in that order (rather than
+    reordering them with CSS) keeps the Tab order the same as the visual order.
+    -->
+    {#each fieldGroups as group, groupIndex (group)}
+        {@const isLastGroup = groupIndex === fieldGroups.length - 1}
+        {#if group.includes('priority')}
             <!-- --------------------------------------------------------------------------- -->
-            <!--  Blocked By Tasks  -->
+            <!--  Priority  -->
             <!-- --------------------------------------------------------------------------- -->
-            {#if isShownInEditModal.before_this}
-                <Dependency
-                    id="before_this"
-                    type="blockedBy"
-                    labelText="Before this"
-                    {task}
-                    {editableTask}
-                    {allTasks}
-                    {_onDescriptionKeyDown}
-                    accesskey={accesskey('b')}
-                    placeholder="Search for tasks that the task being edited depends on..."
-                />
+            {#if isShownInEditModal.priority}
+                <section class="tasks-modal-priority-section">
+                    <PriorityEditor bind:priority={editableTask.priority} {withAccessKeys} />
+                </section>
+                {#if !isLastGroup}
+                    <hr/>
+                {/if}
             {/if}
+        {:else if group.includes('recurrence')}
+            <!-- --------------------------------------------------------------------------- -->
+            <!--  Dates  -->
+            <!-- --------------------------------------------------------------------------- -->
+            <section class="tasks-modal-dates-section">
+                {#each group as field (field)}
+                    {#if isShownInEditModal[field]}
+                        {#if field === 'recurrence'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Recurrence  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <RecurrenceEditor {editableTask} bind:isRecurrenceValid accesskey={accesskey('r')} />
+                        {:else if field === 'due'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Due Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="due"
+                                dateSymbol={dueDateSymbol}
+                                bind:date={editableTask.dueDate}
+                                bind:isDateValid={isDueDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('d')}
+                            />
+                        {:else if field === 'scheduled'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Scheduled Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="scheduled"
+                                dateSymbol={scheduledDateSymbol}
+                                bind:date={editableTask.scheduledDate}
+                                bind:isDateValid={isScheduledDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('s')}
+                            />
+                        {:else if field === 'start'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Start Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="start"
+                                dateSymbol={startDateSymbol}
+                                bind:date={editableTask.startDate}
+                                bind:isDateValid={isStartDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('a')}
+                            />
+                        {/if}
+                    {/if}
+                {/each}
 
-            <!-- --------------------------------------------------------------------------- -->
-            <!--  Blocking Tasks  -->
-            <!-- --------------------------------------------------------------------------- -->
-            {#if isShownInEditModal.after_this}
-                <Dependency
-                    id="after_this"
-                    type="blocking"
-                    labelText="After this"
-                    {task}
-                    {editableTask}
-                    {allTasks}
-                    {_onDescriptionKeyDown}
-                    accesskey={accesskey('e')}
-                    placeholder="Search for tasks that depend on this task being done..."
-                />
+                <!-- --------------------------------------------------------------------------- -->
+                <!--  Only future dates  -->
+                <!-- --------------------------------------------------------------------------- -->
+                {#if isShownInEditModal.due || isShownInEditModal.scheduled || isShownInEditModal.start}
+                    <div class="future-dates-only" id="only-future-dates">
+                        <label for="forwardOnly"
+                            >{@html labelContentWithAccessKey('Only future dates:', accesskey('f'))}</label
+                        >
+                        <!-- svelte-ignore a11y-accesskey -->
+                        <input
+                            bind:checked={editableTask.forwardOnly}
+                            id="forwardOnly"
+                            type="checkbox"
+                            class="task-list-item-checkbox tasks-modal-checkbox"
+                            accesskey={accesskey('f')}
+                        />
+                    </div>
+                {/if}
+            </section>
+            {#if !isLastGroup && (isShownInEditModal.due || isShownInEditModal.scheduled || isShownInEditModal.start)}
+                <hr/>
             {/if}
-        {:else}
-            <div><i>Blocking and blocked by fields are disabled when vault tasks is empty</i></div>
+        {:else if group.includes('before_this')}
+            <!-- --------------------------------------------------------------------------- -->
+            <!--  Dependencies  -->
+            <!-- --------------------------------------------------------------------------- -->
+            <section class="tasks-modal-dependencies-section">
+                {#if allTasks.length > 0 && mountComplete}
+                    {#each group as field (field)}
+                        {#if isShownInEditModal[field]}
+                            {#if field === 'before_this'}
+                                <!-- --------------------------------------------------------------------------- -->
+                                <!--  Blocked By Tasks  -->
+                                <!-- --------------------------------------------------------------------------- -->
+                                <Dependency
+                                    id="before_this"
+                                    type="blockedBy"
+                                    labelText="Before this"
+                                    {task}
+                                    {editableTask}
+                                    {allTasks}
+                                    {_onDescriptionKeyDown}
+                                    accesskey={accesskey('b')}
+                                    placeholder="Search for tasks that the task being edited depends on..."
+                                />
+                            {:else if field === 'after_this'}
+                                <!-- --------------------------------------------------------------------------- -->
+                                <!--  Blocking Tasks  -->
+                                <!-- --------------------------------------------------------------------------- -->
+                                <Dependency
+                                    id="after_this"
+                                    type="blocking"
+                                    labelText="After this"
+                                    {task}
+                                    {editableTask}
+                                    {allTasks}
+                                    {_onDescriptionKeyDown}
+                                    accesskey={accesskey('e')}
+                                    placeholder="Search for tasks that depend on this task being done..."
+                                />
+                            {/if}
+                        {/if}
+                    {/each}
+                {:else}
+                    <div><i>Blocking and blocked by fields are disabled when vault tasks is empty</i></div>
+                {/if}
+            </section>
+            {#if !isLastGroup && (isShownInEditModal.before_this || isShownInEditModal.after_this)}
+                <hr/>
+            {/if}
+        {:else if group.includes('status')}
+            <section class="tasks-modal-dates-section">
+                {#each group as field (field)}
+                    {#if isShownInEditModal[field]}
+                        {#if field === 'status'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Status  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <StatusEditor {task} bind:editableTask {statusOptions} accesskey={accesskey('u')} />
+                        {:else if field === 'created'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Created Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="created"
+                                dateSymbol={createdDateSymbol}
+                                bind:date={editableTask.createdDate}
+                                bind:isDateValid={isCreatedDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('c')}
+                            />
+                        {:else if field === 'done'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Done Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="done"
+                                dateSymbol={doneDateSymbol}
+                                bind:date={editableTask.doneDate}
+                                bind:isDateValid={isDoneDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('x')}
+                            />
+                        {:else if field === 'cancelled'}
+                            <!-- --------------------------------------------------------------------------- -->
+                            <!--  Cancelled Date  -->
+                            <!-- --------------------------------------------------------------------------- -->
+                            <DateEditor
+                                id="cancelled"
+                                dateSymbol={cancelledDateSymbol}
+                                bind:date={editableTask.cancelledDate}
+                                bind:isDateValid={isCancelledDateValid}
+                                forwardOnly={editableTask.forwardOnly}
+                                accesskey={accesskey('-')}
+                            />
+                        {/if}
+                    {/if}
+                {/each}
+            </section>
+            {#if !isLastGroup && (isShownInEditModal.status || isShownInEditModal.created || isShownInEditModal.done || isShownInEditModal.cancelled)}
+                <hr/>
+            {/if}
         {/if}
-    </section>
-    {#if isShownInEditModal.before_this || isShownInEditModal.after_this}
-        <hr id="line-after-dependencies" />
-    {/if}
+    {/each}
 
-    <section class="tasks-modal-dates-section">
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Status  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.status}
-            <StatusEditor {task} bind:editableTask {statusOptions} accesskey={accesskey('u')} />
-        {/if}
+    <!--
+    The 'mousedown|preventDefault' below stops these buttons needing to be tapped
+    twice on mobile.
 
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Created Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.created}
-            <DateEditor
-                id="created"
-                dateSymbol={createdDateSymbol}
-                bind:date={editableTask.createdDate}
-                bind:isDateValid={isCreatedDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('c')}
-            />
-        {/if}
+    While a field has focus, TaskModal.scss adds up to 360px of padding below the
+    modal content, so that the sticky button bar can be scrolled clear of the
+    software keyboard. WebKit does not give a <button> focus when it is tapped, but
+    it does blur the focused text field - so tapping Apply removes that padding
+    mid-tap and moves the button bar by several hundred pixels. The button is then no
+    longer under the finger, and the browser delivers the click to the <form> rather
+    than to the button, making the first tap appear to do nothing.
 
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Done Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.done}
-            <DateEditor
-                id="done"
-                dateSymbol={doneDateSymbol}
-                bind:date={editableTask.doneDate}
-                bind:isDateValid={isDoneDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('x')}
-            />
-        {/if}
-
-        <!-- --------------------------------------------------------------------------- -->
-        <!--  Cancelled Date  -->
-        <!-- --------------------------------------------------------------------------- -->
-        {#if isShownInEditModal.cancelled}
-            <DateEditor
-                id="cancelled"
-                dateSymbol={cancelledDateSymbol}
-                bind:date={editableTask.cancelledDate}
-                bind:isDateValid={isCancelledDateValid}
-                forwardOnly={editableTask.forwardOnly}
-                accesskey={accesskey('-')}
-            />
-        {/if}
-    </section>
-
+    Cancelling the default action of 'mousedown' leaves focus where it is, so the
+    padding stays and the buttons do not move while they are being tapped. It does
+    not affect the click itself, nor keyboard activation.
+    -->
     <section class="tasks-modal-button-section">
-        <button disabled={!formIsValid} type="submit" class="mod-cta">Apply </button>
-        <button type="button" on:click={_onClose}>Cancel</button>
+        <button disabled={!formIsValid} type="submit" class="mod-cta" on:mousedown|preventDefault>Apply </button>
+        <button type="button" on:click={_onClose} on:mousedown|preventDefault>Cancel</button>
     </section>
 </form>

@@ -1,16 +1,14 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
 import type { Task } from 'Task/Task';
-import { GlobalQuery } from '../../src/Config/GlobalQuery';
-import { resetSettings, updateSettings } from '../../src/Config/Settings';
-import { State } from '../../src/Obsidian/Cache';
-import { QueryResultsRenderer } from '../../src/Renderer/QueryResultsRenderer';
-import { TasksFile } from '../../src/Scripting/TasksFile';
+import { GlobalQuery } from 'Config/GlobalQuery';
+import { resetSettings, updateSettings } from 'Config/Settings';
+import { State } from 'Obsidian/Cache';
+import { QueryResultsRenderer } from 'Renderer/QueryResultsRenderer';
+import type { TasksFile } from 'Scripting/TasksFile';
 import { mockApp } from '../__mocks__/obsidian';
 import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 import {
     makeHtmlQueryRendererParameters,
     mockHTMLRenderer,
@@ -21,12 +19,12 @@ import {
 window.moment = moment;
 
 beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2025-12-01'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-12-01'));
 });
 
 afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     resetSettings();
     GlobalQuery.getInstance().reset();
 });
@@ -49,13 +47,13 @@ function makeQueryResultsRenderer(source: string, tasksFile: TasksFile, allTasks
     return queryResultsRenderer;
 }
 
-async function verifyRenderedHtml(allTasks: Task[], source: string, state: State = State.Warm): Promise<void> {
-    const renderer = makeQueryResultsRenderer(source, new TasksFile('file.md'), allTasks);
+async function verifyRenderedHtml(allTasks: Task[], source: string, state: State = State.Warm): Promise<string> {
+    const renderer = makeQueryResultsRenderer(source, createTestTasksFile('file.md'), allTasks);
     const container = document.createElement('div');
 
     await renderer.render(state, allTasks, container);
 
-    verifyRenderedTasks(container, allTasks);
+    return verifyRenderedTasks(container, allTasks);
 }
 
 describe('QueryResultsRenderer - accessing results', () => {
@@ -63,14 +61,14 @@ describe('QueryResultsRenderer - accessing results', () => {
     const twoTasks = [...aTask, new TaskBuilder().description('another task').build()];
 
     it('should have empty results before rendering', () => {
-        const renderer = makeQueryResultsRenderer('', new TasksFile('file.md'), aTask);
+        const renderer = makeQueryResultsRenderer('', createTestTasksFile('file.md'), aTask);
 
         expect(renderer.queryResult.totalTasksCount).toEqual(0);
         expect(renderer.filteredQueryResult.totalTasksCount).toEqual(0);
     });
 
     it('should have actual results after rendering', async () => {
-        const renderer = makeQueryResultsRenderer('', new TasksFile('file.md'), aTask);
+        const renderer = makeQueryResultsRenderer('', createTestTasksFile('file.md'), aTask);
 
         await renderer.render(State.Warm, aTask, document.createElement('div'));
 
@@ -79,7 +77,7 @@ describe('QueryResultsRenderer - accessing results', () => {
     });
 
     it('should have actual result after filtering results', async () => {
-        const renderer = makeQueryResultsRenderer('', new TasksFile('file.md'), twoTasks);
+        const renderer = makeQueryResultsRenderer('', createTestTasksFile('file.md'), twoTasks);
 
         await renderer.render(State.Warm, twoTasks, document.createElement('div'));
 
@@ -96,8 +94,8 @@ describe('QueryResultsRenderer - accessing results', () => {
 
 describe('QueryResultsRenderer - rendering queries', () => {
     beforeEach(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2023-07-05'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2023-07-05'));
     });
 
     it('should render the toolbar', async () => {
@@ -139,17 +137,69 @@ describe('QueryResultsRenderer - rendering queries', () => {
 
         await verifyRenderedHtml(twoTasks, source);
     });
+
+    it('should render columns view', async () => {
+        const source = 'view columns by function task.description';
+        const twoTasks: Task[] = [
+            new TaskBuilder().description('first').build(),
+            new TaskBuilder().description('second').build(),
+        ];
+
+        const html = await verifyRenderedHtml(twoTasks, source);
+        expect(html).toContain('<div class="tasks-columns">');
+    });
+
+    describe('group counts', () => {
+        const showGroupCountHideOtherStuff = [
+            'show group count',
+            'group by priority',
+            'group by function task.description',
+            'hide edit button',
+            'hide backlink',
+        ].join('\n');
+
+        const threeTasks: Task[] = [
+            new TaskBuilder().description('1').build(),
+            new TaskBuilder().description('2+3').build(),
+            new TaskBuilder().description('2+3').build(),
+        ];
+
+        const makeHeadingAndCountHtml = (expectedHeading: string, expectedCountLabel: string): string =>
+            [
+                '  <h5 class="tasks-group-heading">',
+                `    For test purposes: ${expectedHeading}`,
+                `    <span class="tasks-group-count">(${expectedCountLabel})</span>`,
+                '  </h5>',
+            ].join('\n');
+
+        const expectedPriorityHeading = '"tasks-group-heading">For test purposes: %%3%%Normal priority';
+
+        it('should render group counts', async () => {
+            const html = await verifyRenderedHtml(threeTasks, showGroupCountHideOtherStuff);
+            expect(html).toContain(expectedPriorityHeading);
+            expect(html).toContain(makeHeadingAndCountHtml('1', '1 task'));
+            expect(html).toContain(makeHeadingAndCountHtml('2+3', '2 tasks'));
+        });
+
+        it('should render limited group counts', async () => {
+            const query = 'limit groups 1\n' + showGroupCountHideOtherStuff;
+            const html = await verifyRenderedHtml(threeTasks, query);
+            expect(html).toContain(expectedPriorityHeading);
+            expect(html).toContain(makeHeadingAndCountHtml('1', '1 task'));
+            expect(html).toContain(makeHeadingAndCountHtml('2+3', '1 of 2 tasks'));
+        });
+    });
 });
 
 describe('QueryResultsRenderer - responding to file edits', () => {
     it('should update the query when its file path is changed', () => {
         // Arrange
         const source = 'path includes {{query.file.path}}';
-        const renderer = makeQueryResultsRenderer(source, new TasksFile('oldPath.md'), []);
+        const renderer = makeQueryResultsRenderer(source, createTestTasksFile('oldPath.md'), []);
         expect(renderer.query.explainQuery()).toContain('path includes oldPath.md');
 
         // Act
-        renderer.setTasksFile(new TasksFile('newPath.md'));
+        renderer.setTasksFile(createTestTasksFile('newPath.md'));
 
         // Assert
         expect(renderer.query.explainQuery()).toContain('path includes newPath.md');
@@ -159,7 +209,7 @@ describe('QueryResultsRenderer - responding to file edits', () => {
         // Arrange
         updateSettings({ presets: { CurrentGrouping: 'group by PATH' } });
         const source = 'preset CurrentGrouping';
-        const renderer = makeQueryResultsRenderer(source, new TasksFile('any file.md'), []);
+        const renderer = makeQueryResultsRenderer(source, createTestTasksFile('any file.md'), []);
         expect(renderer.query.explainQuery()).toContain('group by PATH');
 
         // Act
@@ -183,7 +233,7 @@ class RendererStoryboard {
 
     constructor(source: string, allTasks: Task[]) {
         this.allTasks = allTasks;
-        this.renderer = makeQueryResultsRenderer(source, new TasksFile('file.md'), allTasks);
+        this.renderer = makeQueryResultsRenderer(source, createTestTasksFile('file.md'), allTasks);
     }
 
     /**
@@ -198,11 +248,11 @@ class RendererStoryboard {
         return this.addFrame(description, container);
     }
 
-    public addFrame(description: string, container: HTMLDivElement) {
+    public async addFrame(description: string, container: HTMLDivElement) {
         this.output += `<h2>${description}:</h2>\n\n`;
         this.output += `<p>Results filter: '${this.renderer.filterString}'</p>\n`;
 
-        const { tasksAsMarkdown, prettyHTML } = tasksMarkdownAndPrettifiedHtml(container, this.allTasks);
+        const { tasksAsMarkdown, prettyHTML } = await tasksMarkdownAndPrettifiedHtml(container, this.allTasks);
         this.output += tasksAsMarkdown + prettyHTML;
 
         return { prettyHTML, container };
@@ -268,7 +318,7 @@ describe('QueryResultsRenderer - sequences', () => {
         const { container } = await storyboard.renderAndAddFrame('Initial results - expect 2 tasks');
 
         await storyboard.renderer.applySearchBoxFilterAndRerender('parent', container);
-        storyboard.addFrame('Filtered results (parent) - expect 1 task', container);
+        await storyboard.addFrame('Filtered results (parent) - expect 1 task', container);
 
         GlobalQuery.getInstance().set('sort by function reverse task.description.length');
         storyboard.renderer.rereadQueryFromFile();

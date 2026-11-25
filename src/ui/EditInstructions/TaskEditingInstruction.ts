@@ -1,4 +1,4 @@
-import type { Task } from '../../Task/Task';
+import type { Task } from 'Task/Task';
 
 /**
  * An instruction interface, for editing a {@link Task} object.
@@ -28,4 +28,9 @@ export interface TaskEditingInstruction {
      * @param task
      */
     isCheckedForTask(task: Task): boolean;
+
+    /**
+     * Return the command ID to use for this instruction, in Obsidian commands.
+     */
+    commandId(): string;
 }

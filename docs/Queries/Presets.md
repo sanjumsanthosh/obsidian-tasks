@@ -31,6 +31,9 @@ Presets are particularly useful when you:
 > [!Tip]
 > Any open Tasks queries are reloaded automatically when presets are edited.
 
+![The Presets settings page. Note the "Filter presets" box, which is present in Obsidian 1.13 and newer.](../images/settings-default-presets.png)
+<span class="caption">The Presets settings page. Note the "Filter presets" box, which is present in Obsidian 1.13 and newer.</span>
+
 ## How to Use Presets
 
 There are two ways to use presets in your task queries:
@@ -72,7 +75,7 @@ Use the **[[Placeholders|placeholder]] syntax** (`{{preset.name}}`) when you nee
 
 ### See the Available Presets
 
-- When the requested preset does not exist, Tasks writes out the list of available Presets, with their first line.
+- When the requested preset does not exist, and no preset name contains the text you typed, Tasks writes out the list of available Presets, with their first line.
 - So for a quick reminder, type `preset xxxx` or any other non-existent Preset name, then switch to Reading or Live Preview modes.
 
 For example, with the [[#Default Presets|default settings]], using `preset xxxx` would show this in the Tasks search results:
@@ -85,7 +88,7 @@ The following presets are defined in the Tasks settings:
   hide_date_fields    : # Hide any values for all date fields...
   hide_everything     : # Hide everything except description and any tags...
   hide_non_date_fields: # Hide all the non-date fields, but not tags...
-  hide_query_elements : # Hide toolbar, postpone, edit and backlinks...
+  hide_query_elements : # Hide toolbar, postpone, edit, backlinks and task...
   this_file           : path includes {{query.file.path}}
   this_folder         : folder includes {{query.file.folder}}
   this_folder_only    : filter by function task.file.folder === query.file...
@@ -93,6 +96,28 @@ The following presets are defined in the Tasks settings:
 ```
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+### Search the Available Presets
+
+- If you only remember part of a preset's name, type that part instead, for example `preset folder`.
+- Tasks then lists only the presets whose names contain that text, ignoring capitalisation.
+- This is handy if you have many presets.
+
+For example, with the [[#Default Presets|default settings]], using `preset Folder` would show:
+
+<!-- placeholder to force blank line before included text --><!-- include: DocsForPresets.test.presets_filter_help_message.approved.md -->
+
+```text
+Cannot find preset "Folder" in the Tasks settings
+Did you mean:
+  this_folder     : folder includes {{query.file.folder}}
+  this_folder_only: filter by function task.file.folder === query.file...
+```
+
+<!-- placeholder to force blank line after included text --><!-- endInclude -->
+
+> [!released]
+> Searching for presets by partial name was introduced in Tasks X.Y.Z.
 
 ### Remembering what your Presets do
 
@@ -112,7 +137,7 @@ The Tasks plugin defines several useful built-in presets, for demonstration purp
 | `this_root` | `root includes {{query.file.root}}` |
 | `hide_date_fields` | `# Hide any values for all date fields`<br>`hide due date`<br>`hide scheduled date`<br>`hide start date`<br>`hide created date`<br>`hide done date`<br>`hide cancelled date` |
 | `hide_non_date_fields` | `# Hide all the non-date fields, but not tags`<br>`hide id`<br>`hide depends on`<br>`hide recurrence rule`<br>`hide on completion`<br>`hide priority` |
-| `hide_query_elements` | `# Hide toolbar, postpone, edit and backlinks`<br>`hide toolbar`<br>`hide postpone button`<br>`hide edit button`<br>`hide backlinks` |
+| `hide_query_elements` | `# Hide toolbar, postpone, edit, backlinks and task count`<br>`hide toolbar`<br>`hide postpone button`<br>`hide edit button`<br>`hide backlinks`<br>`hide task count` |
 | `hide_everything` | `# Hide everything except description and any tags`<br>`preset hide_date_fields`<br>`preset hide_non_date_fields`<br>`preset hide_query_elements` |
 
 <!-- placeholder to force blank line after included text --><!-- endInclude -->
@@ -122,7 +147,8 @@ These defaults can, of course, be edited, renamed and deleted.
 > [!released]
 >
 > - `hide toolbar` was added to `hide_query_elements` in Tasks 7.23.0.
->   - For pre-existing Tasks installations, you can manually add that new instruction to your Preset settings.
+> - `hide task count` was added to `hide_query_elements` in Tasks 8.4.0.
+> - For pre-existing Tasks installations, you can manually add those new instructions to your Preset settings.
 
 ## Example: Daily Note Presets
 

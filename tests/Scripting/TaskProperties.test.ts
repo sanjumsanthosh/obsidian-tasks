@@ -1,20 +1,16 @@
-/**
- * @jest-environment jsdom
- */
-
 import moment from 'moment';
-import { Status } from '../../src/Statuses/Status';
+import { Status } from 'Statuses/Status';
 
-import { TaskBuilder } from '../TestingTools/TaskBuilder';
-import { verifyMarkdownForDocs } from '../TestingTools/VerifyMarkdown';
-import { parseAndEvaluateExpression } from '../../src/Scripting/TaskExpression';
-import { MarkdownTable } from '../../src/lib/MarkdownTable';
-import { makeQueryContextWithTasks } from '../../src/Scripting/QueryContext';
-import { TasksFile } from '../../src/Scripting/TasksFile';
-import type { Task } from '../../src/Task/Task';
+import { parseAndEvaluateExpression } from 'Scripting/TaskExpression';
+import { MarkdownTable } from 'lib/MarkdownTable';
+import { makeQueryContextWithTasks } from 'Scripting/QueryContext';
+import type { Task } from 'Task/Task';
+import { LinkResolver } from 'Task/LinkResolver';
 import { readTasksFromSimulatedFile } from '../Obsidian/SimulatedFile';
-import { LinkResolver } from '../../src/Task/LinkResolver';
+import { verifyMarkdownForDocs } from '../TestingTools/VerifyMarkdown';
+import { TaskBuilder } from '../TestingTools/TaskBuilder';
 import { getFirstLinkpathDest } from '../__mocks__/obsidian';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 import { addBackticks, determineExpressionType, formatToRepresentType } from './ScriptingTestHelpers';
 
 window.moment = moment;
@@ -42,7 +38,7 @@ describe('task', () => {
         });
         const markdownTable = new MarkdownTable(headings);
 
-        const queryContext = makeQueryContextWithTasks(new TasksFile(tasks[0].path), tasks);
+        const queryContext = makeQueryContextWithTasks(createTestTasksFile(tasks[0].path), tasks);
         for (const field of fields) {
             const cells = [addBackticks(field)];
             for (const task of tasks) {
@@ -56,12 +52,12 @@ describe('task', () => {
     }
 
     beforeAll(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2023-06-12'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2023-06-12'));
     });
 
     afterAll(() => {
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     // NEW_TASK_FIELD_EDIT_REQUIRED

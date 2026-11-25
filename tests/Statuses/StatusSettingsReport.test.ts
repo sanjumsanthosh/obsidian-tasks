@@ -1,14 +1,9 @@
-import { StatusSettings } from '../../src/Config/StatusSettings';
-import { sampleTaskLinesForValidStatuses, tabulateStatusSettings } from '../../src/Statuses/StatusSettingsReport';
-import type { StatusCollection } from '../../src/Statuses/StatusCollection';
+import { StatusSettings } from 'Config/StatusSettings';
+import { sampleTaskLinesForValidStatuses, tabulateStatusSettings } from 'Statuses/StatusSettingsReport';
+import type { StatusCollection } from 'Statuses/StatusCollection';
+import { GlobalFilter } from 'Config/GlobalFilter';
 import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { coreStatusesData, createStatuses } from '../TestingTools/StatusesTestHelpers';
-import { initializeI18n } from '../../src/i18n/i18n';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-
-beforeAll(async () => {
-    await initializeI18n();
-});
 
 afterEach(() => {
     GlobalFilter.getInstance().reset();

@@ -1,19 +1,5 @@
-import {
-    PresetsSettingsService,
-    RenameResult,
-    type RenamesInProgress,
-} from '../../../src/Query/Presets/PresetsSettingsService';
-import type { PresetsMap } from '../../../src/Query/Presets/Presets';
-
-function expectToBeValid(result: RenameResult) {
-    expect(result.isValid).toBe(true);
-    expect(result.errorMessage).toBe(null);
-}
-
-function expectToGiveError(result: RenameResult, errorMessage: string) {
-    expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBe(errorMessage);
-}
+import { PresetsSettingsService } from 'Query/Presets/PresetsSettingsService';
+import type { PresetsMap } from 'Query/Presets/Presets';
 
 describe('PresetsSettingsService', () => {
     let service: PresetsSettingsService;
@@ -25,134 +11,6 @@ describe('PresetsSettingsService', () => {
             key1: 'value1',
             key2: 'value2',
         };
-    });
-
-    describe('PresetsSettingsService - validateMultipleIncludeNames', () => {
-        let service: PresetsSettingsService;
-
-        beforeEach(() => {
-            service = new PresetsSettingsService();
-        });
-
-        it('should validate all keys as valid when there are no duplicates', () => {
-            const keyMap: RenamesInProgress = {
-                original_key_1: 'unique_value_1',
-                original_key_2: 'unique_value_2',
-                original_key_3: 'unique_value_3',
-            };
-
-            const result = service.validateRenames(keyMap);
-
-            expectToBeValid(result['original_key_1']);
-            expectToBeValid(result['original_key_2']);
-            expectToBeValid(result['original_key_3']);
-        });
-
-        it('should mark duplicate keys as invalid', () => {
-            const keyMap: RenamesInProgress = {
-                original_key_1: 'duplicate_value',
-                original_key_2: 'duplicate_value', // Duplicate
-                original_key_3: 'unique_value',
-            };
-
-            const result = service.validateRenames(keyMap);
-
-            expectToGiveError(result['original_key_1'], 'A preset with this name already exists');
-            expectToGiveError(result['original_key_2'], 'A preset with this name already exists');
-            expectToBeValid(result['original_key_3']);
-        });
-
-        it('should mark names differing only in whitespace as identical', () => {
-            const keyMap: RenamesInProgress = {
-                original_key_1: 'duplicate_value',
-                original_key_2: 'duplicate_value  ', // Duplicate
-                original_key_3: 'unique_value',
-            };
-
-            const result = service.validateRenames(keyMap);
-
-            expectToGiveError(result['original_key_1'], 'A preset with this name already exists');
-            expectToGiveError(result['original_key_2'], 'A preset with this name already exists');
-            expectToBeValid(result['original_key_3']);
-        });
-
-        it('should mark empty keys as invalid', () => {
-            const keyMap: RenamesInProgress = {
-                original_key_1: '',
-                original_key_2: '  ', // Whitespace only
-                original_key_3: 'valid_key',
-            };
-
-            const result = service.validateRenames(keyMap);
-
-            expectToGiveError(result['original_key_1'], 'Preset name cannot be empty or all whitespace');
-            expectToGiveError(result['original_key_2'], 'Preset name cannot be empty or all whitespace');
-            expectToBeValid(result['original_key_3']);
-        });
-
-        it('should handle the case when all keys are identical', () => {
-            const keyMap: RenamesInProgress = {
-                original_key_1: 'same_value',
-                original_key_2: 'same_value',
-                original_key_3: 'same_value',
-            };
-
-            const result = service.validateRenames(keyMap);
-
-            // None should be valid
-            const validCount = Object.values(result).filter((r) => r.isValid).length;
-            expect(validCount).toBe(0);
-        });
-    });
-
-    describe('PresetsSettingsService - validateRename', () => {
-        it('should recognise valid new name', () => {
-            expectToBeValid(service.validateRename(testPresets, 'key1', 'new-name'));
-        });
-
-        it('should reject an empty new name', () => {
-            const result = service.validateRename(testPresets, 'key1', '');
-            expectToGiveError(result, 'Preset name cannot be empty or all whitespace');
-        });
-
-        it('should reject an new name with only whitespaces', () => {
-            const result = service.validateRename(testPresets, 'key1', ' \t');
-            expectToGiveError(result, 'Preset name cannot be empty or all whitespace');
-        });
-
-        it('should reject a new name if it already exists', () => {
-            const result = service.validateRename(testPresets, 'key1', 'key2');
-            expectToGiveError(result, 'A preset with this name already exists');
-        });
-
-        it('should reject a new name if it already exists, without ending spaces', () => {
-            const result = service.validateRename(testPresets, 'key1', 'key2  ');
-            expectToGiveError(result, 'A preset with this name already exists');
-        });
-
-        it('should reject a new name if it already exists, with surrounding spaces', () => {
-            testPresets = {
-                key1: 'value1',
-                ' key2 ': 'value2',
-            };
-
-            const result = service.validateRename(testPresets, 'key1', 'key2');
-            expectToGiveError(result, 'A preset with this name already exists');
-        });
-
-        it('should treat renaming to self as valid', () => {
-            expectToBeValid(service.validateRename(testPresets, 'key1', 'key1'));
-        });
-    });
-
-    describe('PresetsSettingsService - addPreset', () => {
-        it('should add a new include with a unique key', () => {
-            const result = service.addPreset(testPresets);
-
-            expect(result.newKey).toBe('new_key_1');
-            expect(result.presets['new_key_1']).toBe('');
-            expect(Object.keys(result.presets).length).toBe(3);
-        });
     });
 
     describe('PresetsSettingsService - renamePreset', () => {
@@ -200,6 +58,137 @@ describe('PresetsSettingsService', () => {
             expect(Object.keys(result).length).toBe(1);
             expect(result['key1']).toBeUndefined();
             expect(result['key2']).toBe('value2');
+        });
+    });
+
+    describe('PresetsSettingsService - duplicatePreset', () => {
+        it('should duplicate a preset with _copy appended to the name immediately below the original', () => {
+            const presets: PresetsMap = {
+                first: 'value1',
+                middle: 'value2',
+                last: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'middle');
+
+            expect(Object.keys(result)).toEqual(['first', 'middle', 'middle_copy', 'last']);
+            expect(result).toEqual({
+                first: 'value1',
+                middle: 'value2',
+                middle_copy: 'value2',
+                last: 'value3',
+            });
+        });
+
+        it('should duplicate the first preset immediately below the original', () => {
+            const presets: PresetsMap = {
+                first: 'value1',
+                second: 'value2',
+                third: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'first');
+
+            expect(Object.keys(result)).toEqual(['first', 'first_copy', 'second', 'third']);
+            expect(result).toEqual({
+                first: 'value1',
+                first_copy: 'value1',
+                second: 'value2',
+                third: 'value3',
+            });
+        });
+
+        it('should duplicate the last preset immediately below the original', () => {
+            const presets: PresetsMap = {
+                first: 'value1',
+                second: 'value2',
+                third: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'third');
+
+            expect(Object.keys(result)).toEqual(['first', 'second', 'third', 'third_copy']);
+            expect(result).toEqual({
+                first: 'value1',
+                second: 'value2',
+                third: 'value3',
+                third_copy: 'value3',
+            });
+        });
+
+        it('should allow repeated _copy suffixes immediately below the original', () => {
+            const presets: PresetsMap = {
+                key1: 'value1',
+                key1_copy: 'value2',
+                final: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'key1_copy');
+
+            expect(Object.keys(result)).toEqual(['key1', 'key1_copy', 'key1_copy_copy', 'final']);
+            expect(result).toEqual({
+                key1: 'value1',
+                key1_copy: 'value2',
+                key1_copy_copy: 'value2',
+                final: 'value3',
+            });
+        });
+
+        it('should append _copy until the duplicated preset name is unique', () => {
+            const presets: PresetsMap = {
+                key1: 'value1',
+                key1_copy: 'existing copy',
+                final: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'key1');
+
+            expect(Object.keys(result)).toEqual(['key1', 'key1_copy_copy', 'key1_copy', 'final']);
+            expect(result).toEqual({
+                key1: 'value1',
+                key1_copy_copy: 'value1',
+                key1_copy: 'existing copy',
+                final: 'value3',
+            });
+        });
+
+        it('should keep appending _copy until it finds an unused preset name', () => {
+            const presets: PresetsMap = {
+                key1: 'value1',
+                key1_copy: 'existing copy',
+                key1_copy_copy: 'existing copy copy',
+                key1_copy_copy_copy: 'existing copy copy copy',
+                final: 'value3',
+            };
+
+            const result = service.duplicatePreset(presets, 'key1');
+
+            expect(Object.keys(result)).toEqual([
+                'key1',
+                'key1_copy_copy_copy_copy',
+                'key1_copy',
+                'key1_copy_copy',
+                'key1_copy_copy_copy',
+                'final',
+            ]);
+            expect(result).toEqual({
+                key1: 'value1',
+                key1_copy_copy_copy_copy: 'value1',
+                key1_copy: 'existing copy',
+                key1_copy_copy: 'existing copy copy',
+                key1_copy_copy_copy: 'existing copy copy copy',
+                final: 'value3',
+            });
+        });
+
+        it('should not modify the original presets map', () => {
+            service.duplicatePreset(testPresets, 'key1');
+
+            expect(Object.keys(testPresets)).toEqual(['key1', 'key2']);
+            expect(testPresets).toEqual({
+                key1: 'value1',
+                key2: 'value2',
+            });
         });
     });
 
@@ -417,6 +406,38 @@ describe('PresetsSettingsService', () => {
             expect(result).not.toBeNull();
             const keys = Object.keys(result!);
             expect(keys).toEqual(['first', 'third', 'fourth', 'second', 'fifth']);
+        });
+    });
+
+    describe('PresetsSettingsService - sortPresetsByName', () => {
+        it('should sort presets by name and preserve values', () => {
+            const presets: PresetsMap = {
+                zebra: 'value1',
+                alpha: 'value2',
+                item10: 'value3',
+                item2: 'value4',
+            };
+
+            const result = service.sortPresetsByName(presets);
+
+            expect(Object.keys(result)).toEqual(['alpha', 'item2', 'item10', 'zebra']);
+            expect(result).toEqual({
+                alpha: 'value2',
+                item2: 'value4',
+                item10: 'value3',
+                zebra: 'value1',
+            });
+        });
+
+        it('should not modify the original presets map', () => {
+            const presets: PresetsMap = {
+                zebra: 'value1',
+                alpha: 'value2',
+            };
+
+            service.sortPresetsByName(presets);
+
+            expect(Object.keys(presets)).toEqual(['zebra', 'alpha']);
         });
     });
 });

@@ -1,21 +1,23 @@
-import type { AllTaskDateFields } from '../../DateTime/DateFieldTypes';
-import { Task } from '../../Task/Task';
-import { postponeMenuItemTitleFromDate, removeDateMenuItemTitleForField } from '../../DateTime/Postponer';
-import { TasksDate } from '../../DateTime/TasksDate';
-import type { TaskEditingInstruction } from './TaskEditingInstruction';
-import { MenuDividerInstruction } from './MenuDividerInstruction';
+import type { AllTaskDateFields } from 'DateTime/DateFieldTypes';
+import { Task } from 'Task/Task';
+import { postponeMenuItemTitleFromDate, removeDateMenuItemTitleForField } from 'DateTime/Postponer';
+import { TasksDate } from 'DateTime/TasksDate';
+import type { TaskEditingInstruction } from 'ui/EditInstructions/TaskEditingInstruction';
+import { MenuDividerInstruction } from 'ui/EditInstructions/MenuDividerInstruction';
+import { BaseTaskEditingInstruction } from 'ui/EditInstructions/BaseTaskEditingInstruction';
 
 /**
  * An instruction to set a date field to an absolute date.
  *
  * See also {@link SetRelativeTaskDate} and {@link RemoveTaskDate}.
  */
-export class SetTaskDate implements TaskEditingInstruction {
+export class SetTaskDate extends BaseTaskEditingInstruction {
     private readonly newDate: Date;
     private readonly dateFieldToEdit;
     private readonly displayName: string;
 
     constructor(dateFieldToEdit: AllTaskDateFields, date: Date, displayName?: string) {
+        super();
         this.newDate = date;
         this.dateFieldToEdit = dateFieldToEdit;
         this.displayName = displayName ?? `Set Date: ${this.newDate.toDateString()}`;
@@ -69,11 +71,12 @@ export class SetRelativeTaskDate extends SetTaskDate {
  *
  * See also {@link SetTaskDate} and {@link SetRelativeTaskDate}.
  */
-export class RemoveTaskDate implements TaskEditingInstruction {
+export class RemoveTaskDate extends BaseTaskEditingInstruction {
     private readonly dateFieldToEdit: AllTaskDateFields;
     private readonly displayName: string;
 
     constructor(dateFieldToEdit: AllTaskDateFields, task: Task) {
+        super();
         this.dateFieldToEdit = dateFieldToEdit;
         this.displayName = removeDateMenuItemTitleForField(dateFieldToEdit, task);
     }
@@ -165,4 +168,25 @@ function allDateInstructions(task: Task, field: AllTaskDateFields, factor: numbe
 
         new RemoveTaskDate(field, task),
     ];
+}
+
+/**
+ * Return a Task editing instruction that can be used to make any other tasks
+ * have the same date value as the given task, for the given date field.
+ */
+export function createEditingInstructionForDateGroups(
+    dateField: AllTaskDateFields,
+    sampleTask: Task,
+): TaskEditingInstruction | null {
+    const rawDate = sampleTask[dateField];
+
+    if (rawDate === null) {
+        return new RemoveTaskDate(dateField, sampleTask);
+    }
+
+    if (!rawDate.isValid()) {
+        // refuse to create an instruction that would copy an invalid date
+        return null;
+    }
+    return new SetTaskDate(dateField, rawDate.toDate());
 }

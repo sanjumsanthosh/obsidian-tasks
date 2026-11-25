@@ -1,27 +1,17 @@
-/**
- * @jest-environment jsdom
- */
-
 import moment from 'moment';
-import type TasksPlugin from '../../src/main';
-import { tasksApiV1 } from '../../src/Api';
-
-// This needs to be mocked because the API imports TaskModal which extends Obsidian's Modal
-// class which is not available during tests.
-jest.mock('obsidian', () => ({
-    Modal: class Mock {},
-}));
+import type TasksPlugin from 'main';
+import { tasksApiV1 } from 'Api';
 
 window.moment = moment;
 
 describe('APIv1 - executeToggleTaskDoneCommand', () => {
     beforeEach(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2022-09-04'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2022-09-04'));
     });
 
     afterEach(() => {
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     const api = tasksApiV1({} as TasksPlugin);

@@ -1042,6 +1042,22 @@ For example:
 >
 > The [[Sorting|sort by]] facility, by contrast, controls the order in which displays are displayed *inside* each group.
 
+### Showing the number of tasks in a group
+
+Since Tasks 8.4.0, you can show or hide the number of tasks in each group heading with these instructions:
+
+```plain text
+show group count
+hide group count
+```
+
+When enabled, Tasks shows the number of tasks in each group heading.
+
+For now, the count is shown only on the lowest-level groups.
+
+This option is off by default. To turn it on, add `show group count` to your query.  
+If you want it in all your searches, add it to your [[Global Query]].
+
 ### Limiting group size
 
 You can limit the number of tasks in each group, perhaps to work on the most important things first.
@@ -1074,6 +1090,22 @@ And here is what this might look like, when grouped by folder, filename and head
 
 ![Tasks Grouped](../images/tasks_grouped.png)
 Tasks grouped.
+
+## Support
+
+Before creating a new bug report or feature request about Grouping, please check existing items to avoid duplicates.
+
+You do not need to search manually: the links below are already filtered to the label `"scope: grouping"`.
+
+- Check both Open and Closed items.
+- If you find an existing item, support it there instead of adding a `+1` comment. See [[About Support and Help#How to support an existing request|How to support an existing request]].
+
+| Type | Open | Closed | Notes |
+| --- | --- | --- | --- |
+| Issues | [Open](https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aopen%20label%3A%22scope%3A+grouping%22%20is%3Aissue%20) | [Closed](https://github.com/obsidian-tasks-group/obsidian-tasks/issues?q=is%3Aclosed%20label%3A%22scope%3A+grouping%22%20is%3Aissue%20) | bug reports and feature requests |
+| Discussions | [Open](https://github.com/obsidian-tasks-group/obsidian-tasks/discussions/categories/ideas-any-new-feature-requests-go-in-issues-please?discussions_q=is%3Aopen+label%3A%22scope%3A+grouping%22+category%3A%22Ideas%3A+Any+New+Feature+Requests+go+in+Issues+please%22+sort%3Atop) | [Closed](https://github.com/obsidian-tasks-group/obsidian-tasks/discussions/categories/ideas-any-new-feature-requests-go-in-issues-please?discussions_q=is%3Aclosed+label%3A%22scope%3A+grouping%22+category%3A%22Ideas%3A+Any+New+Feature+Requests+go+in+Issues+please%22+sort%3Atop) | older feature discussions from before late 2022 |
+
+If you do not find an existing item in Issues or Discussions, see [[About Support and Help]] for how to report a bug or request a feature.
 
 ## Examples
 

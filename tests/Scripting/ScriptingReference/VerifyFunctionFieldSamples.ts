@@ -1,15 +1,16 @@
-import { verifyAll } from 'approvals/lib/Providers/Jest/JestApprovals';
-import { FunctionField } from '../../../src/Query/Filter/FunctionField';
-import type { Task } from '../../../src/Task/Task';
-import { groupHeadingsForTask } from '../../CustomMatchers/CustomMatchersForGrouping';
-import { verifyMarkdownForDocs } from '../../TestingTools/VerifyMarkdown';
-import { expandPlaceholders } from '../../../src/Scripting/ExpandPlaceholders';
-import { makeQueryContext } from '../../../src/Scripting/QueryContext';
-import { splitSourceHonouringLineContinuations } from '../../../src/Query/Scanner';
-import { SearchInfo } from '../../../src/Query/SearchInfo';
-import { Sort } from '../../../src/Query/Sort/Sort';
+import { verifyAll } from '@approval-tests/approvals/lib/Providers/Vitest/VitestApprovals';
+import { FunctionField } from 'Query/Filter/FunctionField';
+import type { Task } from 'Task/Task';
+import { expandPlaceholders } from 'Scripting/ExpandPlaceholders';
+import { makeQueryContext } from 'Scripting/QueryContext';
+import { splitSourceHonouringLineContinuations } from 'Query/Scanner';
+import { SearchInfo } from 'Query/SearchInfo';
+import { Sort } from 'Query/Sort/Sort';
+import type { TasksFile } from 'Scripting/TasksFile';
 import { toLines } from '../../TestingTools/TestHelpers';
-import { TasksFile } from '../../../src/Scripting/TasksFile';
+import { verifyMarkdownForDocs } from '../../TestingTools/VerifyMarkdown';
+import { groupHeadingsForTask } from '../../CustomMatchers/CustomMatchersForGrouping';
+import { createTestTasksFile } from '../../TestingTools/TasksFileHelpers';
 
 /** For example, 'task.due' */
 type TaskPropertyName = string;
@@ -88,7 +89,7 @@ export function verifyFunctionFieldFilterSamplesOnTasks(filters: QueryInstructio
         const instruction = filter[0];
         const comment = filter.slice(1);
 
-        const tasksFile = new TasksFile('a/b.md');
+        const tasksFile = createTestTasksFile('a/b.md');
         const expandedInstruction = preprocessSingleInstruction(instruction, tasksFile);
         const filterOrErrorMessage = new FunctionField().createFilterOrErrorMessage(expandedInstruction);
         expect(filterOrErrorMessage).toBeValid();
@@ -126,7 +127,7 @@ export function verifyFunctionFieldSortSamplesOnTasks(
         const instruction = filter[0];
         const comment = filter.slice(1);
 
-        const tasksFile = new TasksFile('a/b.md');
+        const tasksFile = createTestTasksFile('a/b.md');
         const expandedInstruction = preprocessSingleInstruction(instruction, tasksFile);
         const sorter = new FunctionField().createSorterFromLine(expandedInstruction);
         expect(sorter).not.toBeNull();
@@ -158,7 +159,7 @@ export function verifyFunctionFieldGrouperSamplesOnTasks(
         const instruction = group[0];
         const comment = group.slice(1);
 
-        const tasksFile = new TasksFile('a/b.md');
+        const tasksFile = createTestTasksFile('a/b.md');
         const expandedInstruction = preprocessSingleInstruction(instruction, tasksFile);
         const grouper = new FunctionField().createGrouperFromLine(expandedInstruction);
         expect(grouper).not.toBeNull();

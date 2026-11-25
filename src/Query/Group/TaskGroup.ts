@@ -1,5 +1,6 @@
-import type { Task } from '../../Task/Task';
-import type { GroupDisplayHeading } from './GroupDisplayHeading';
+import type { Task } from 'Task/Task';
+import { totalTasksCountDisplayText } from 'Query/TaskCountDisplayText';
+import type { GroupDisplayHeading } from 'Query/Group/GroupDisplayHeading';
 
 /**
  * Store a single group of tasks, that all share the same group names.
@@ -52,6 +53,12 @@ export class TaskGroup {
     public tasks: Task[];
 
     /**
+     * The number of tasks originally in this group, before any group limit
+     * was applied.
+     */
+    private readonly _totalTasksCountBeforeLimit: number;
+
+    /**
      * Constructor
      * @param {string[]} groups - See {@link groups} for details
      * @param tasks {Task[]} - See {@link tasks} for details
@@ -60,6 +67,7 @@ export class TaskGroup {
         this.groups = groups;
         this.groupHeadings = [];
         this.tasks = tasks;
+        this._totalTasksCountBeforeLimit = tasks.length;
     }
 
     public setGroupHeadings(headingsForTaskGroup: GroupDisplayHeading[]) {
@@ -78,6 +86,11 @@ export class TaskGroup {
      */
     public applyTaskLimit(limit: number) {
         this.tasks = this.tasks.slice(0, limit);
+    }
+
+    public describeTaskCount() {
+        const tasksCount = this.tasks.length;
+        return totalTasksCountDisplayText(tasksCount, this._totalTasksCountBeforeLimit);
     }
 
     /**

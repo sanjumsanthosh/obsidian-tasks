@@ -1,7 +1,7 @@
 import moment from 'moment/moment';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-import { State } from '../../src/Obsidian/Cache';
-import { Priority } from '../../src/Task/Priority';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { State } from 'Obsidian/Cache';
+import { Priority } from 'Task/Priority';
 import { readTasksFromSimulatedFile } from '../Obsidian/SimulatedFile';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
 import { fromMarkdown } from '../TestingTools/TestHelpers';
@@ -133,6 +133,44 @@ group by id
             - [ ] 5 #something
             "
         `);
+    });
+
+    it('should write group task count, if enabled', async () => {
+        const tasks = fromMarkdown(`
+- [ ] 1 ⏳ 2025-10-29
+- [ ] 2 ⏬
+- [ ] 3 ⏫ ⏳ 2025-10-30
+- [ ] 4 ⏳ 2025-10-29
+`);
+
+        const { markdown } = await renderMarkdown(
+            `
+group by priority
+group by scheduled
+show group count
+`,
+            tasks,
+        );
+        expect(markdown).toEqual(`
+#### %%1%%High priority
+
+##### 2025-10-30 Thursday (1 task)
+
+- [ ] 3 ⏫ ⏳ 2025-10-30
+
+#### %%3%%Normal priority
+
+##### 2025-10-29 Wednesday (2 tasks)
+
+- [ ] 1 ⏳ 2025-10-29
+- [ ] 4 ⏳ 2025-10-29
+
+#### %%5%%Lowest priority
+
+##### No scheduled date (1 task)
+
+- [ ] 2 ⏬
+`);
     });
 
     it('should remove indentation for nested tasks', async () => {

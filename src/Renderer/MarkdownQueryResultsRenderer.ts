@@ -1,10 +1,10 @@
-import type { IQuery } from '../IQuery';
-import type { GroupDisplayHeading } from '../Query/Group/GroupDisplayHeading';
-import type { QueryResult } from '../Query/QueryResult';
-import type { TasksFile } from '../Scripting/TasksFile';
-import type { ListItem } from '../Task/ListItem';
-import type { Task } from '../Task/Task';
-import { QueryResultsRendererBase } from './QueryResultsRendererBase';
+import type { IQuery } from 'IQuery';
+import type { GroupDisplayHeading } from 'Query/Group/GroupDisplayHeading';
+import type { QueryResult } from 'Query/QueryResult';
+import type { TasksFile } from 'Scripting/TasksFile';
+import type { ListItem } from 'Task/ListItem';
+import type { Task } from 'Task/Task';
+import { QueryResultsRendererBase } from 'Renderer/QueryResultsRendererBase';
 
 /**
  * @example
@@ -109,9 +109,10 @@ export class MarkdownQueryResultsRenderer extends QueryResultsRendererBase {
         return '    '.repeat(indentationLevel);
     }
 
-    protected addGroupHeading(group: GroupDisplayHeading): Promise<void> {
+    protected addGroupHeading(group: GroupDisplayHeading, groupTaskCountText: string): Promise<void> {
         const headingPrefix = '#'.repeat(Math.min(4 + group.nestingLevel, 6));
-        this.markdownLines.push(`${headingPrefix} ${group.displayName}`);
+        const countText = groupTaskCountText === '' ? '' : ` ${groupTaskCountText}`;
+        this.markdownLines.push(`${headingPrefix} ${group.displayName}${countText}`);
         this.addEmptyLine();
         return Promise.resolve();
     }

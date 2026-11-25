@@ -1,15 +1,15 @@
 import type { Reference } from 'obsidian';
-import { makeQueryContextWithTasks } from '../../src/Scripting/QueryContext';
+import { makeQueryContextWithTasks } from 'Scripting/QueryContext';
 
+import { MarkdownTable } from 'lib/MarkdownTable';
+import { parseAndEvaluateExpression } from 'Scripting/TaskExpression';
+import { LinkResolver } from 'Task/LinkResolver';
 import { verifyMarkdownForDocs } from '../TestingTools/VerifyMarkdown';
-import { MarkdownTable } from '../../src/lib/MarkdownTable';
-import { parseAndEvaluateExpression } from '../../src/Scripting/TaskExpression';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
-import { TasksFile } from '../../src/Scripting/TasksFile';
 import { getTasksFileFromMockData } from '../TestingTools/MockDataHelpers';
-import { LinkResolver } from '../../src/Task/LinkResolver';
 import { getFirstLinkpathDestFromData } from '../__mocks__/obsidian';
 import { MockDataLoader } from '../TestingTools/MockDataLoader';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 import { addBackticks, determineExpressionType, formatToRepresentType } from './ScriptingTestHelpers';
 
 beforeEach(() => {});
@@ -30,7 +30,7 @@ describe('query', () => {
             getFirstLinkpathDestFromData(query_using_properties, rawLink),
         );
 
-        const tasksFile = new TasksFile('root/sub-folder/file containing query.md', cachedMetadata);
+        const tasksFile = createTestTasksFile('root/sub-folder/file containing query.md', cachedMetadata);
         const task = new TaskBuilder()
             .description('... an array with all the Tasks-tracked tasks in the vault ...')
             .build();

@@ -1,4 +1,4 @@
-import { QueryLayoutOptions, parseQueryShowHideOptions } from '../../src/Layout/QueryLayoutOptions';
+import { QueryLayoutOptions, parseQueryShowHideOptions } from 'Layout/QueryLayoutOptions';
 
 describe('parsing query show/hide layout options', () => {
     function parseOptionAndCheck(options: QueryLayoutOptions, option: string, hide: boolean) {
@@ -10,8 +10,10 @@ describe('parsing query show/hide layout options', () => {
         // Alphabetical order
         ['backlink', 'hideBacklinks', false],
         ['edit button', 'hideEditButton', false],
+        ['nested backlink', 'hideNestedBacklinks', false],
         ['postpone button', 'hidePostponeButton', false],
         ['task count', 'hideTaskCount', false],
+        ['group count', 'hideGroupCount', true],
         ['toolbar', 'hideToolbar', false],
         ['tree', 'hideTree', true],
         ['urgency', 'hideUrgency', true],

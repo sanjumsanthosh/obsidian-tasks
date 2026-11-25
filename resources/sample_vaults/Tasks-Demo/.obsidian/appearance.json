@@ -6,7 +6,9 @@
     "dataview-block",
     "dataview-clare",
     "dataview-blocks",
-    "widen-property-labels"
+    "widen-property-labels",
+    "image-border"
   ],
-  "accentColor": ""
+  "accentColor": "",
+  "showRibbon": true
 }

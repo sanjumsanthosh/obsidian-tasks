@@ -1,11 +1,15 @@
 import type { App, Editor, MarkdownFileInfo, MarkdownView, TFile, View } from 'obsidian';
-import type TasksPlugin from '../main';
-import { StatusRegistry } from '../Statuses/StatusRegistry';
-import { createOrEdit } from './CreateOrEdit';
+import type TasksPlugin from 'main';
+import { StatusRegistry } from 'Statuses/StatusRegistry';
+import { QuickSearchTasksModal } from 'ui/QuickSearchTasksModal';
+import { createOrEdit } from 'Commands/CreateOrEdit';
 
-import { toggleDone } from './ToggleDone';
-import { ensureQueryFileDefaultsInFrontmatter } from './AddQueryFileDefaultsProperties';
-import { createSetStatusCommands } from './ChangeStatusCommands';
+import { toggleDone } from 'Commands/ToggleDone';
+import { ensureQueryFileDefaultsInFrontmatter } from 'Commands/AddQueryFileDefaultsProperties';
+import { createSetStatusCommands } from 'Commands/ChangeStatusCommands';
+import { createSetPriorityCommands } from 'Commands/ChangePriorityCommands';
+
+export const ToggleTaskDoneCommandName = 'Toggle task done';
 
 export class Commands {
     private readonly plugin: TasksPlugin;
@@ -36,9 +40,21 @@ export class Commands {
 
         plugin.addCommand({
             id: 'toggle-done',
-            name: 'Toggle task done',
+            name: ToggleTaskDoneCommandName,
             icon: 'check-in-circle',
             editorCheckCallback: toggleDone,
+        });
+
+        plugin.addCommand({
+            id: 'quick-search',
+            name: 'Quick search',
+            icon: 'search',
+            callback: () =>
+                new QuickSearchTasksModal(
+                    this.app,
+                    () => this.plugin.getTasks(),
+                    async () => await this.plugin.saveSettings(),
+                ).open(),
         });
 
         plugin.addCommand({
@@ -63,9 +79,9 @@ export class Commands {
 
         // Register set-status commands for each registered status
         const setStatusCommands = createSetStatusCommands(StatusRegistry.getInstance());
-        for (const command of setStatusCommands) {
-            plugin.addCommand(command);
-        }
+        setStatusCommands.forEach((command) => plugin.addCommand(command));
+
+        createSetPriorityCommands().forEach((command) => plugin.addCommand(command));
     }
 
     async ensureQueryFileDefaultsFrontmatter(file: TFile): Promise<void> {

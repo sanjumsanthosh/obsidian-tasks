@@ -1,16 +1,14 @@
-/**
- * @jest-environment jsdom
- */
-import { type RenderResult, fireEvent, render } from '@testing-library/svelte';
+import { type RenderResult, fireEvent, render, waitFor } from '@testing-library/svelte';
 import moment from 'moment';
-import { taskFromLine } from '../../src/Commands/CreateOrEditTaskParser';
-import type { EditModalShowSettings } from '../../src/Config/EditModalShowSettings';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-import { getSettings, resetSettings, updateSettings } from '../../src/Config/Settings';
-import { DateFallback } from '../../src/DateTime/DateFallback';
-import { StatusRegistry } from '../../src/Statuses/StatusRegistry';
-import type { Task } from '../../src/Task/Task';
-import EditTask from '../../src/ui/EditTask.svelte';
+import { taskFromLine } from 'Commands/CreateOrEditTaskParser';
+import type { EditModalShowSettings } from 'Config/EditModalShowSettings';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { getSettings, resetSettings, updateSettings } from 'Config/Settings';
+import { DateFallback } from 'DateTime/DateFallback';
+import { StatusRegistry } from 'Statuses/StatusRegistry';
+import type { Task } from 'Task/Task';
+import EditTask from 'ui/EditTask.svelte';
+import { HAPPENS_DATE_FIELDS } from 'DateTime/DateFieldTypes';
 import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { verifyAllCombinations3Async } from '../TestingTools/CombinationApprovalsAsync';
 import { prettifyHTML } from '../TestingTools/HTMLHelpers';
@@ -24,6 +22,17 @@ import {
 } from './RenderingTestHelpers';
 
 window.moment = moment;
+
+type RemoveDateSuffix<T extends string> = T extends `${infer Base}Date` ? Base : never;
+
+function removeDateSuffix<T extends `${string}Date`>(field: T): RemoveDateSuffix<T> {
+    return field.slice(0, -4) as RemoveDateSuffix<T>;
+}
+
+const HAPPENS_EDIT_MODAL_FIELDS = HAPPENS_DATE_FIELDS.map(removeDateSuffix) satisfies ReadonlyArray<
+    keyof EditModalShowSettings
+>;
+
 /**
  * Construct an onSubmit function for editing the given task, and when Apply is clicked,
  * returning the edit task(s) converted to a string.
@@ -241,6 +250,22 @@ describe('Task rendering', () => {
         );
     });
 
+    it('should strip 1 trailing space from description', () => {
+        testDescriptionRender(
+            // force line break
+            'started with 1 trailing space ',
+            'started with 1 trailing space',
+        );
+    });
+
+    it('should strip 2 trailing spaces from description', () => {
+        testDescriptionRender(
+            // force line break
+            'started with 2 trailing spaces  ',
+            'started with 2 trailing spaces',
+        );
+    });
+
     const fullyPopulatedLine = TaskBuilder.createFullyPopulatedTask().toFileLineString();
 
     it('should display valid created date', () => {
@@ -336,12 +361,12 @@ describe('Task editing', () => {
     describe('Status editing', () => {
         const today = '2024-02-29';
         beforeAll(() => {
-            jest.useFakeTimers();
-            jest.setSystemTime(new Date(today));
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date(today));
         });
 
         afterAll(() => {
-            jest.useRealTimers();
+            vi.useRealTimers();
         });
 
         afterEach(() => {
@@ -547,12 +572,12 @@ describe('Task editing', () => {
 
     describe('Date editing', () => {
         beforeEach(() => {
-            jest.useFakeTimers();
-            jest.setSystemTime(new Date('2024-11-27'));
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date('2024-11-27'));
         });
 
         afterEach(() => {
-            jest.useRealTimers();
+            vi.useRealTimers();
         });
 
         const line = '- [ ] simple';
@@ -616,14 +641,14 @@ describe('Task editing', () => {
  */
 describe('Exhaustive editing', () => {
     beforeEach(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2023-07-18'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2023-07-18'));
     });
 
     afterEach(() => {
         GlobalFilter.getInstance().reset();
         resetSettings();
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     /**
@@ -641,12 +666,18 @@ describe('Exhaustive editing', () => {
         const initialTaskLineValues = [
             '',
             'plain text, not a list item',
+            'plain text, not a list item, had 1 trailing space, should end up with none ',
+            'plain text, not a list item, should retain its 2 trailing spaces  ', // TODO does not retain trailing spaces
             '-',
             '- ',
             '- [ ]',
             '- [ ] ',
             '- list item, but no checkbox',
+            '- list item, but no checkbox, had 1 trailing space, should end up with none ',
+            '- list item, but no checkbox, should retain its 2 trailing spaces  ', // TODO does not retain trailing spaces
             '- [ ] checkbox with initial description',
+            '- [ ] checkbox with initial description, had 1 trailing space, should end up with none ',
+            '- [ ] checkbox with initial description, should retain its 2 trailing spaces  ',
             '- [ ] checkbox with initial description and created date ➕ 2023-01-01',
             '- [ ] #task checkbox with global filter string and initial description',
             '- [ ] checkbox with initial description ending with task tag at end #task',
@@ -678,7 +709,7 @@ describe('Exhaustive editing', () => {
     });
 });
 
-function verifyModalHTML() {
+async function verifyModalHTML() {
     // Populate task a valid and an invalid date. Note that the valid date value
     // is not visible in the HTML output.
     const task = taskFromLine({ line: '- [ ] absolutely to do 🛫 2024-01-01 ⏳ 2024-02-33', path: '' });
@@ -686,7 +717,7 @@ function verifyModalHTML() {
     const allTasks = [task];
     const { container } = renderAndCheckModal(task, onSubmit, allTasks);
 
-    const prettyHTML = prettifyHTML(container.innerHTML);
+    const prettyHTML = await prettifyHTML(container.innerHTML);
     verifyWithFileExtension(prettyHTML, 'html');
 }
 
@@ -695,14 +726,14 @@ describe('Edit Modal HTML snapshot tests', () => {
         resetSettings();
     });
 
-    it('should match snapshot', () => {
+    it('should match snapshot', async () => {
         updateSettings({ provideAccessKeys: true });
-        verifyModalHTML();
+        await verifyModalHTML();
     });
 
-    it('should match snapshot - without access keys', () => {
+    it('should match snapshot - without access keys', async () => {
         updateSettings({ provideAccessKeys: false });
-        verifyModalHTML();
+        await verifyModalHTML();
     });
 });
 
@@ -761,9 +792,7 @@ describe('Hiding modal fields', () => {
     });
 
     it('should hide "Only future dates checkbox" and line after happens dates', () => {
-        // NEW_TASK_FIELD_EDIT_REQUIRED - add new happens date below
-        updateSettings({ isShownInEditModal: hideFields('due', 'scheduled', 'start') });
-
+        updateSettings({ isShownInEditModal: hideFields(...HAPPENS_EDIT_MODAL_FIELDS) });
         testElementNotRendered('only-future-dates');
         testElementNotRendered('line-after-happens-dates');
     });
@@ -772,5 +801,117 @@ describe('Hiding modal fields', () => {
         updateSettings({ isShownInEditModal: hideFields('before_this', 'after_this') });
 
         testElementNotRendered('line-after-dependencies');
+    });
+});
+
+describe('Ordering modal fields', () => {
+    afterEach(() => {
+        resetSettings();
+    });
+
+    function renderedFieldIds() {
+        const fullyPopulatedLine = TaskBuilder.createFullyPopulatedTask().toFileLineString();
+        const task = taskFromLine({ line: fullyPopulatedLine, path: '' });
+        const { container } = renderAndCheckModal(task, () => {});
+
+        // The order of fields in the DOM is also the Tab order.
+        // Include separator lines to check their positions between groups.
+        const fields = Object.keys(getSettings().isShownInEditModal);
+        return Array.from(container.querySelectorAll('[id], hr'))
+            .filter((element) => element.tagName === 'HR' || fields.includes(element.id))
+            .map((element) => (element.tagName === 'HR' ? '---' : element.id));
+    }
+
+    it('should render fields in the default order and lines between them', () => {
+        expect(renderedFieldIds()).toEqual([
+            'priority',
+            '---',
+            'recurrence',
+            'due',
+            'scheduled',
+            'start',
+            '---',
+            'before_this',
+            'after_this',
+            '---',
+            'status',
+            'created',
+            'done',
+            'cancelled',
+        ]);
+    });
+
+    it('should render fields in the saved order and lines between them', () => {
+        updateSettings({
+            editModalFieldOrder: [
+                ['cancelled', 'done', 'status', 'created'],
+                ['start', 'due', 'recurrence', 'scheduled'],
+                ['priority'],
+                ['after_this', 'before_this'],
+            ],
+        });
+
+        expect(renderedFieldIds()).toEqual([
+            'cancelled',
+            'done',
+            'status',
+            'created',
+            '---',
+            'start',
+            'due',
+            'recurrence',
+            'scheduled',
+            '---',
+            'priority',
+            '---',
+            'after_this',
+            'before_this',
+        ]);
+    });
+});
+
+describe('Buttons in the modal on mobile', () => {
+    // Regression test for the Apply button needing two taps on mobile.
+    //
+    // '.is-mobile .tasks-edit-modal-container:focus-within .modal-content' adds up to
+    // 360px of padding while a field has focus, to let the sticky button bar scroll
+    // clear of the software keyboard. WebKit does not focus a <button> when it is
+    // tapped, but it does blur the focused text field, so that padding is removed
+    // part-way through the tap and the button bar moves several hundred pixels. By
+    // the time the tap finishes, the button is no longer under the finger and the
+    // click is delivered to the <form> instead - so the first tap appears to do
+    // nothing.
+    //
+    // Preventing the default action of 'mousedown' stops the focus change, so the
+    // field keeps focus, the padding stays, and nothing moves during the tap.
+    //
+    // jsdom has no layout and does not move focus on 'mousedown', so this checks the
+    // one thing it can: that the default action is cancelled.
+    it.each([['Apply'], ['Cancel']])(
+        'should cancel the default focus change when %s is pressed',
+        async (buttonText) => {
+            const task = new TaskBuilder().build();
+            const { result } = renderAndCheckModal(task, () => {});
+
+            const button = result.getByText(buttonText) as HTMLButtonElement;
+
+            // fireEvent resolves to false when a listener called preventDefault().
+            await expect(fireEvent.mouseDown(button)).resolves.toBe(false);
+        },
+    );
+
+    it('should cancel the default focus change when a dependency is removed', async () => {
+        const blockingTask = new TaskBuilder().id('abcdef').description('Wash the bin').build();
+        const task = new TaskBuilder().dependsOn(['abcdef']).description('Take out the trash').build();
+        const { container } = renderAndCheckModal(task, () => {}, [task, blockingTask]);
+
+        // The dependency fields are only rendered once the component has mounted.
+        const deleteButton = await waitFor(() => {
+            const button = container.querySelector<HTMLButtonElement>('.task-dependency-delete');
+            expect(button).not.toBeNull();
+            return button!;
+        });
+
+        await expect(fireEvent.mouseDown(deleteButton)).resolves.toBe(false);
     });
 });

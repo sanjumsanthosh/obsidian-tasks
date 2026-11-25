@@ -1,6 +1,6 @@
 import { MenuItem, Notice } from 'obsidian';
 import type { Moment, unitOfTime } from 'moment/moment';
-import type { Task } from '../../Task/Task';
+import type { Task } from 'Task/Task';
 import {
     createFixedDateTask,
     createPostponedTask,
@@ -10,9 +10,9 @@ import {
     postponeMenuItemTitle,
     postponementSuccessMessage,
     removeDateMenuItemTitle,
-} from '../../DateTime/Postponer';
-import type { HappensDate } from '../../DateTime/DateFieldTypes';
-import { TaskEditingMenu, type TaskSaver, defaultTaskSaver } from './TaskEditingMenu';
+} from 'DateTime/Postponer';
+import type { HappensDate } from 'DateTime/DateFieldTypes';
+import { TaskEditingMenu, type TaskSaver, defaultTaskSaver } from 'ui/Menus/TaskEditingMenu';
 
 type NamingFunction = (task: Task, amount: number, timeUnit: unitOfTime.DurationConstructor) => string;
 
@@ -122,7 +122,8 @@ export class PostponeMenu extends TaskEditingMenu {
         postponedDate: Moment | null,
     ) {
         // Disable the button to prevent update error due to the task not being reloaded yet.
-        button.style.pointerEvents = 'none';
+        // (we cannot use Obsidian's addClass method because it is not available when this code is run in tests.)
+        button.classList.add('tasks-no-pointer-events');
 
         const successMessage = postponementSuccessMessage(postponedDate, updatedDateType);
         new Notice(successMessage, 2000);

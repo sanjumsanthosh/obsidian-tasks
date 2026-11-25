@@ -1,12 +1,13 @@
-import { Options } from 'approvals/lib/Core/Options';
-import { verify } from 'approvals/lib/Providers/Jest/JestApprovals';
-import type { GlobalFilter } from '../../src/Config/GlobalFilter';
-import type { GlobalQuery } from '../../src/Config/GlobalQuery';
-import { Query } from '../../src/Query/Query';
-import { explainResults } from '../../src/Query/QueryRendererHelper';
-import type { Task } from '../../src/Task/Task';
-import { type OptionalTasksFile, TasksFile } from '../../src/Scripting/TasksFile';
+import { Options } from '@approval-tests/approvals/lib/Core/Options';
+import { verify } from '@approval-tests/approvals/lib/Providers/Vitest/VitestApprovals';
+import type { GlobalFilter } from 'Config/GlobalFilter';
+import type { GlobalQuery } from 'Config/GlobalQuery';
+import { Query } from 'Query/Query';
+import { explainResults } from 'Query/QueryRendererHelper';
+import type { Task } from 'Task/Task';
+import type { OptionalTasksFile } from 'Scripting/TasksFile';
 import { verifyMarkdown } from './VerifyMarkdown';
+import { createTestTasksFile } from './TasksFileHelpers';
 
 export function printIteration<T1>(func: <T1>(t1: T1) => any, params1: T1[]): string {
     const EMPTY_ENTRY = {};
@@ -94,7 +95,7 @@ export function verifyTaskBlockExplanation(
     globalFilter: GlobalFilter,
     globalQuery: GlobalQuery,
     options?: Options,
-    tasksFile: OptionalTasksFile = new TasksFile('some/sample/file path.md'),
+    tasksFile: OptionalTasksFile = createTestTasksFile('some/sample/file path.md'),
 ): void {
     const explanation = explainResults(instructions, globalFilter, globalQuery, tasksFile);
 

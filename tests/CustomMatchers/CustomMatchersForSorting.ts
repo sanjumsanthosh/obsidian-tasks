@@ -1,38 +1,43 @@
 import type moment from 'moment';
-import { DateParser } from '../../src/DateTime/DateParser';
-import type { Sorter } from '../../src/Query/Sort/Sorter';
-import type { Task } from '../../src/Task/Task';
-import { compareByDate } from '../../src/DateTime/DateTools';
-import { SearchInfo } from '../../src/Query/SearchInfo';
-import { TasksFile } from '../../src/Scripting/TasksFile';
+import { DateParser } from 'DateTime/DateParser';
+import type { Sorter } from 'Query/Sort/Sorter';
+import type { Task } from 'Task/Task';
+import { compareByDate, getDateFormat } from 'DateTime/DateTools';
+import { SearchInfo } from 'Query/SearchInfo';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 
-declare global {
-    namespace jest {
-        interface Matchers<R> {
-            toBeSorted(): R; // see https://www.npmjs.com/package/jest-sorted
-            toGiveCompareToResult(expected: number): R;
-            toCompareTasksWithResult(expected: number): R;
-        }
+declare module 'vitest' {
+    interface Matchers<R> {
+        toBeSorted(): R; // see https://www.npmjs.com/package/jest-sorted
+        toGiveCompareToResult(expected: -1 | 0 | 1): R;
+        toCompareTasksWithResult(expected: -1 | 0 | 1): R;
     }
 }
 
+type DateOrString = string | moment.Moment | null;
+
+function formatDateForMessage(date: DateOrString): string {
+    if (typeof date === 'string' || date === null) {
+        return `${date}`;
+    }
+    return date.isValid() ? date.format(getDateFormat(date)) : 'Invalid date';
+}
+
 expect.extend({
-    toGiveCompareToResult(dates: (string | null)[], expected: -1 | 0 | 1) {
+    toGiveCompareToResult(dates: DateOrString[], expected: -1 | 0 | 1) {
         expect(dates.length).toEqual(2);
 
         const dateA = dates[0];
         const dateB = dates[1];
 
-        let a: moment.Moment | null = null;
-        if (dateA !== null) a = DateParser.parseDate(dateA);
-
-        let b: moment.Moment | null = null;
-        if (dateB !== null) b = DateParser.parseDate(dateB);
+        const a = typeof dateA === 'string' ? DateParser.parseDate(dateA) : dateA;
+        const b = typeof dateB === 'string' ? DateParser.parseDate(dateB) : dateB;
 
         const actual = compareByDate(a, b);
 
         const pass = actual === expected;
-        const message = () => `${dateA} < ${dateB}: expected=${expected} actual=${actual}`;
+        const message = () =>
+            `${formatDateForMessage(dateA)} < ${formatDateForMessage(dateB)}: expected=${expected} actual=${actual}`;
 
         return { pass, message };
     },
@@ -41,7 +46,7 @@ expect.extend({
         expect(tasks.length).toEqual(2);
         const taskA = tasks[0];
         const taskB = tasks[1];
-        const actual = sorting.comparator(taskA, taskB, new SearchInfo(new TasksFile('dummy path.md'), tasks));
+        const actual = sorting.comparator(taskA, taskB, new SearchInfo(createTestTasksFile('dummy path.md'), tasks));
 
         let pass;
         let expectedDesription: string;
@@ -77,22 +82,22 @@ const before = -1; // This will actually pass if the comparator returns any valu
 // ---------------------------------------------------------------------
 // Sorting Dates
 // ---------------------------------------------------------------------
-export function expectDateComparesBefore(dateA: string | null, dateB: string | null) {
+export function expectDateComparesBefore(dateA: DateOrString, dateB: DateOrString) {
     testCompareByDateBothWays(dateA, dateB, before);
 }
 
-export function expectDateComparesEqual(dateA: string | null, dateB: string | null) {
+export function expectDateComparesEqual(dateA: DateOrString, dateB: DateOrString) {
     testCompareByDateBothWays(dateA, dateB, equal);
 }
 
-export function expectDateComparesAfter(dateA: string | null, dateB: string | null) {
+export function expectDateComparesAfter(dateA: DateOrString, dateB: DateOrString) {
     testCompareByDateBothWays(dateA, dateB, after);
 }
 
-function testCompareByDateBothWays(dateA: string | null, dateB: string | null, expected: -1 | 0 | 1) {
+function testCompareByDateBothWays(dateA: DateOrString, dateB: DateOrString, expected: -1 | 0 | 1) {
     expect([dateA, dateB]).toGiveCompareToResult(expected);
 
-    const reverseExpected = expected === equal ? equal : -expected;
+    const reverseExpected = expected === equal ? equal : expected === before ? after : before;
     expect([dateB, dateA]).toGiveCompareToResult(reverseExpected);
 }
 
@@ -115,6 +120,6 @@ export function expectTaskComparesAfter(sorter: Sorter, taskA: Task, taskB: Task
 function testCompareTasksBothWays(sorter: Sorter, taskA: Task, taskB: Task, expected: -1 | 0 | 1) {
     expect({ sorting: sorter, tasks: [taskA, taskB] }).toCompareTasksWithResult(expected);
 
-    const reverseExpected = expected === equal ? equal : -expected;
+    const reverseExpected = expected === equal ? equal : expected === before ? after : before;
     expect({ sorting: sorter, tasks: [taskB, taskA] }).toCompareTasksWithResult(reverseExpected);
 }

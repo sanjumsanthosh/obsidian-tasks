@@ -1,13 +1,13 @@
 import type { App } from 'obsidian';
-import { State } from '../../src/Obsidian/Cache';
-import type { FilterOrErrorMessage } from '../../src/Query/Filter/FilterOrErrorMessage';
-import { Query } from '../../src/Query/Query';
-import type { HTMLQueryRendererParameters } from '../../src/Renderer/HtmlQueryResultsRenderer';
-import { MarkdownQueryResultsRenderer } from '../../src/Renderer/MarkdownQueryResultsRenderer';
-import { TasksFile } from '../../src/Scripting/TasksFile';
-import type { Task } from '../../src/Task/Task';
+import { State } from 'Obsidian/Cache';
+import type { FilterOrErrorMessage } from 'Query/Filter/FilterOrErrorMessage';
+import { Query } from 'Query/Query';
+import type { HTMLQueryRendererParameters, HtmlQueryResultsRenderer } from 'Renderer/HtmlQueryResultsRenderer';
+import { MarkdownQueryResultsRenderer } from 'Renderer/MarkdownQueryResultsRenderer';
+import type { Task } from 'Task/Task';
 import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { prettifyHTML } from '../TestingTools/HTMLHelpers';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 import { toMarkdown } from '../TestingTools/TestHelpers';
 
 export const mockHTMLRenderer = async (_obsidianApp: App, text: string, element: HTMLSpanElement, _path: string) => {
@@ -37,7 +37,7 @@ export function makeHtmlQueryRendererParameters(allTasks: Task[]): HTMLQueryRend
 }
 
 export function createMarkdownRenderer(source: string) {
-    const tasksFile = new TasksFile('query.md');
+    const tasksFile = createTestTasksFile('query.md');
     const query = new Query(source, tasksFile);
 
     const renderer = new MarkdownQueryResultsRenderer(source, tasksFile, query);
@@ -61,16 +61,44 @@ export async function renderMarkdown(source: string, tasks: Task[]) {
     };
 }
 
-export function tasksMarkdownAndPrettifiedHtml(container: HTMLDivElement, allTasks: Task[]) {
+export async function tasksMarkdownAndPrettifiedHtml(container: HTMLDivElement, allTasks: Task[]) {
     const tasksAsMarkdown = `<!--
 ${toMarkdown(allTasks)}
 -->\n\n`;
 
-    const prettyHTML = prettifyHTML(container.outerHTML);
+    const prettyHTML = await prettifyHTML(container.outerHTML);
     return { tasksAsMarkdown, prettyHTML };
 }
 
-export function verifyRenderedTasks(container: HTMLDivElement, allTasks: Task[]): void {
-    const { tasksAsMarkdown, prettyHTML } = tasksMarkdownAndPrettifiedHtml(container, allTasks);
+export async function verifyHtmlFromRenderer(
+    renderer: HtmlQueryResultsRenderer,
+    state: State,
+    query: Query,
+    allTasks: Task[],
+): Promise<HTMLDivElement> {
+    const container = document.createElement('div');
+    renderer.content = container;
+    await renderer.renderQuery(state, query.applyQueryToTasks(allTasks));
+
+    await verifyRenderedTasks(container, allTasks);
+    return container;
+}
+
+export async function verifyRenderedTasks(container: HTMLDivElement, allTasks: Task[]): Promise<string> {
+    const { tasksAsMarkdown, prettyHTML } = await tasksMarkdownAndPrettifiedHtml(container, allTasks);
     verifyWithFileExtension(tasksAsMarkdown + prettyHTML, 'html');
+    return prettyHTML;
+}
+
+export async function renderTasks(
+    state: State,
+    renderer: HtmlQueryResultsRenderer,
+    allTasks: Task[],
+    query: Query,
+): Promise<HTMLDivElement> {
+    const container = document.createElement('div');
+
+    renderer.content = container;
+    await renderer.renderQuery(state, query.applyQueryToTasks(allTasks));
+    return container;
 }

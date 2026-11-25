@@ -1,20 +1,20 @@
 import { type App, Component, MarkdownRenderer } from 'obsidian';
-import { GlobalFilter } from '../Config/GlobalFilter';
-import { TASK_FORMATS, getSettings } from '../Config/Settings';
-import type { AllTaskDateFields } from '../DateTime/DateFieldTypes';
-import { splitDateText } from '../DateTime/Postponer';
-import type { QueryLayoutOptions } from '../Layout/QueryLayoutOptions';
-import { TaskLayoutComponent, type TaskLayoutOptions } from '../Layout/TaskLayoutOptions';
-import { replaceTaskWithTasks } from '../Obsidian/File';
-import { StatusRegistry } from '../Statuses/StatusRegistry';
-import type { ListItem } from '../Task/ListItem';
-import { Task } from '../Task/Task';
-import { TaskRegularExpressions } from '../Task/TaskRegularExpressions';
-import { DateMenu } from '../ui/Menus/DateMenu';
-import { promptForDate } from '../ui/Menus/DatePicker';
-import { StatusMenu } from '../ui/Menus/StatusMenu';
-import { defaultTaskSaver, showMenu } from '../ui/Menus/TaskEditingMenu';
-import { TaskFieldRenderer } from './TaskFieldRenderer';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { TASK_FORMATS, getSettings } from 'Config/Settings';
+import type { AllTaskDateFields } from 'DateTime/DateFieldTypes';
+import { splitDateText } from 'DateTime/Postponer';
+import type { QueryLayoutOptions } from 'Layout/QueryLayoutOptions';
+import { TaskLayoutComponent, type TaskLayoutOptions } from 'Layout/TaskLayoutOptions';
+import { replaceTaskWithTasks } from 'Obsidian/File';
+import { StatusRegistry } from 'Statuses/StatusRegistry';
+import type { ListItem } from 'Task/ListItem';
+import { Task } from 'Task/Task';
+import { TaskRegularExpressions } from 'Task/TaskRegularExpressions';
+import { DateMenu } from 'ui/Menus/DateMenu';
+import { promptForDate } from 'ui/Menus/DatePicker';
+import { StatusMenu } from 'ui/Menus/StatusMenu';
+import { defaultTaskSaver, showMenu } from 'ui/Menus/TaskEditingMenu';
+import { TaskFieldRenderer } from 'Renderer/TaskFieldRenderer';
 
 /**
  * The function used to render a Markdown task line into an existing HTML element.
@@ -28,30 +28,30 @@ export type TextRenderer = (
 ) => Promise<void>;
 
 /**
- * Create an HTML element, and append it to a parent element.
+ * Replace the original list item that Obsidian rendered in Reading View with the one
+ * that Tasks has rendered.
  *
- * Unlike the equivalent Obsidian convenience function li.createEl(),
- * this can be called from our automated tests.
+ * Any classes and data attributes added to the original element by Obsidian or other plugins'
+ * Markdown post-processors prior to this plugin's Markdown post-processor running are copied onto
+ * the replacement so that they are not lost when Tasks swaps in its own rendered element.
  *
- * @param tagName - the type of element to be created, for example 'ul', 'div', 'span', 'li'.
- * @param parentElement - the parent element, to which the created element will be appended.
+ * Data attributes that the replacement already has (those that Tasks set when rendering) take
+ * precedence and are not overwritten by the original's values.
  *
- * @example <caption>Example call:</caption>
- * const li = createAndAppendElement('li', parentElement);
+ * @param original - the list item rendered by Obsidian, which is being replaced.
+ * @param replacement - the list item rendered by Tasks, which takes its place.
  */
-export function createAndAppendElement<K extends keyof HTMLElementTagNameMap>(
-    tagName: K,
-    parentElement: HTMLElement,
-): HTMLElementTagNameMap[K] {
-    // Maintenance note:
-    //  We don't use the Obsidian convenience function li.createEl() here, because we don't have it available
-    //  when running tests, and we want the tests to be able to create the full div and span structure,
-    //  so had to convert all of these to the equivalent but more elaborate document.createElement() and
-    //  appendChild() calls.
+export function reconcileReplacementTask(original: HTMLElement, replacement: HTMLElement): void {
+    original.classList.forEach((cls) => replacement.classList.add(cls)); // Copy classes from original to replacement
 
-    const el: HTMLElementTagNameMap[K] = document.createElement(tagName);
-    parentElement.appendChild(el);
-    return el;
+    // Copy data attributes from original to replacement, without overwriting those Tasks has set
+    original.getAttributeNames().forEach((name) => {
+        if (name.startsWith('data-') && !replacement.hasAttribute(name)) {
+            replacement.setAttribute(name, original.getAttribute(name)!);
+        }
+    });
+
+    original.replaceWith(replacement);
 }
 
 /**
@@ -71,6 +71,7 @@ export class TaskLineRenderer {
     private readonly queryLayoutOptions: QueryLayoutOptions;
 
     public static async obsidianMarkdownRenderer(
+        this: void,
         app: App,
         text: string,
         element: HTMLSpanElement,
@@ -148,13 +149,13 @@ export class TaskLineRenderer {
     }): Promise<void> {
         li.classList.add('task-list-item', 'plugin-tasks-list-item');
 
-        const textSpan = createAndAppendElement('span', li);
+        const textSpan = li.createSpan();
         textSpan.classList.add('tasks-list-text');
         await this.taskToHtml(task, textSpan, li, isTaskInQueryFile);
 
         // NOTE: this area is mentioned in `CONTRIBUTING.md` under "How does Tasks handle status changes". When
         // moving the code, remember to update that reference too.
-        const checkbox = createAndAppendElement('input', li);
+        const checkbox = li.createEl('input');
         checkbox.classList.add('task-list-item-checkbox');
         checkbox.type = 'checkbox';
         if (task.status.symbol !== ' ') {
@@ -167,7 +168,7 @@ export class TaskLineRenderer {
         // See https://github.com/obsidian-tasks-group/obsidian-tasks/issues/2130
         const addEventListeners = task.taskLocation.hasKnownPath;
         if (addEventListeners) {
-            checkbox.addEventListener('click', (event: MouseEvent) => {
+            checkbox.addEventListener('click', async (event: MouseEvent) => {
                 event.preventDefault();
                 // It is required to stop propagation so that obsidian won't write the file with the
                 // checkbox (un)checked. Obsidian would write after us and overwrite our change.
@@ -176,7 +177,7 @@ export class TaskLineRenderer {
                 // Should be re-rendered as enabled after update in file.
                 checkbox.disabled = true;
                 const toggledTasks = task.toggleWithRecurrenceInUsersOrder();
-                replaceTaskWithTasks({
+                await replaceTaskWithTasks({
                     originalTask: task,
                     newTasks: toggledTasks,
                 });
@@ -219,13 +220,13 @@ export class TaskLineRenderer {
             );
             if (componentString) {
                 // Create the text span that will hold the rendered component
-                const span = createAndAppendElement('span', parentElement);
+                const span = parentElement.createSpan();
 
                 // Inside that text span, we are creating another internal span, that will hold the text itself.
                 // This may seem redundant, and by default it indeed does nothing, but we do it to allow the CSS
                 // to differentiate between the container of the text and the text itself, so it will be possible
                 // to do things like surrounding only the text (rather than its whole placeholder) with a highlight
-                const internalSpan = createAndAppendElement('span', span);
+                const internalSpan = span.createSpan();
                 await this.renderComponentText(internalSpan, componentString, component, task, isTaskInQueryFile);
                 this.addInternalClasses(component, internalSpan);
 
@@ -374,7 +375,7 @@ export class TaskLineRenderer {
          * https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(double-quoted)-state
          */
         function tagToAttributeValue(tag: string) {
-            // eslint-disable-next-line no-control-regex
+            // eslint-disable-next-line no-control-regex -- sanitize tag names for double-quoted HTML attributes
             const illegalChars = /["&\x00\r\n]/g;
             let sanitizedTag = tag.replace(illegalChars, '-');
             // And if after sanitization the name starts with dashes or underscores, remove them.
@@ -457,11 +458,12 @@ export class TaskLineRenderer {
 
     public async renderListItem(li: HTMLLIElement, listItem: ListItem, listItemIndex: number): Promise<HTMLLIElement> {
         if (listItem.statusCharacter) {
-            const checkbox = createAndAppendElement('input', li);
+            // special case: handle toggling of task lines without the global query, in Tasks search results
+            const checkbox = li.createEl('input');
             checkbox.classList.add('task-list-item-checkbox');
             checkbox.type = 'checkbox';
 
-            checkbox.addEventListener('click', (event: MouseEvent) => {
+            checkbox.addEventListener('click', async (event: MouseEvent) => {
                 event.preventDefault();
                 // It is required to stop propagation so that obsidian won't write the file with the
                 // checkbox (un)checked. Obsidian would write after us and overwrite our change.
@@ -471,7 +473,7 @@ export class TaskLineRenderer {
                 checkbox.disabled = true;
 
                 const checkedOrUncheckedListItem = listItem.checkOrUncheck();
-                replaceTaskWithTasks({ originalTask: listItem, newTasks: checkedOrUncheckedListItem });
+                await replaceTaskWithTasks({ originalTask: listItem, newTasks: checkedOrUncheckedListItem });
             });
 
             if (listItem.statusCharacter !== ' ') {
@@ -487,7 +489,7 @@ export class TaskLineRenderer {
             li.setAttribute('data-line', listItemIndex.toString());
         }
 
-        const span = createAndAppendElement('span', li);
+        const span = li.createSpan();
         await this.textRenderer(
             this.obsidianApp,
             listItem.description,

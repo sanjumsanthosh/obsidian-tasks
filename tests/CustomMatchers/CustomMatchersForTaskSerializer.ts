@@ -1,16 +1,15 @@
 import { diff } from 'jest-diff';
-import type { MatcherFunction } from 'expect';
+import type { Matcher, MatcherState } from 'vitest';
 import moment from 'moment';
-import type { TaskDetails } from '../../src/TaskSerializer';
-import { Recurrence } from '../../src/Task/Recurrence';
-import { Priority } from '../../src/Task/Priority';
-import { TaskRegularExpressions } from '../../src/Task/TaskRegularExpressions';
+import type { TaskDetails } from 'TaskSerializer';
+import { Recurrence } from 'Task/Recurrence';
+import { Priority } from 'Task/Priority';
+import { TaskRegularExpressions } from 'Task/TaskRegularExpressions';
+import { ALL_DATE_FIELDS } from 'DateTime/DateFieldTypes';
 
-declare global {
-    namespace jest {
-        interface Matchers<R> {
-            toMatchTaskDetails(partial_expected_details: Partial<TaskDetails>): R;
-        }
+declare module 'vitest' {
+    interface Matchers<R> {
+        toMatchTaskDetails(partial_expected_details: Partial<TaskDetails>): R;
     }
 }
 
@@ -35,15 +34,7 @@ function isTaskDetails(val: any): val is TaskDetails {
         return false;
     }
 
-    const dates: ReadonlyArray<keyof TaskDetails> = [
-        // NEW_TASK_FIELD_EDIT_REQUIRED
-        'startDate',
-        'createdDate',
-        'scheduledDate',
-        'dueDate',
-        'doneDate',
-        'cancelledDate',
-    ] as const;
+    const dates: ReadonlyArray<keyof TaskDetails> = ALL_DATE_FIELDS;
 
     for (const d of dates) {
         if (!(moment.isMoment(val[d]) || val[d] === null)) {
@@ -136,19 +127,14 @@ function tryBuildTaskDetails(t: object): TaskDetails | null {
  * @param received A {@TaskDetails} or null
  * @param partial_expected A Partial {@link TaskDetails}
  */
-export const toMatchTaskDetails: MatcherFunction<[partial_expected: unknown]> = function (
+export const toMatchTaskDetails: Matcher<MatcherState, [partial_expected: unknown]> = function (
     received: unknown,
     partial_expected: unknown,
 ) {
-    const {
-        matcherErrorMessage,
-        matcherHint,
-        printWithType,
-        printExpected,
-        printReceived,
-        RECEIVED_COLOR,
-        EXPECTED_COLOR,
-    } = this.utils;
+    const { matcherHint, printWithType, printExpected, printReceived, RECEIVED_COLOR, EXPECTED_COLOR } = this.utils;
+    const matcherErrorMessage = (hint: string, generic: string, specific: string): string =>
+        `${hint}\n\n${generic}\n\n${specific}`;
+
     const matcherInvocation = matcherHint('toMatchTaskDetails', undefined, undefined, this);
 
     // Message to print when parameter does not have type TaskDetails | null

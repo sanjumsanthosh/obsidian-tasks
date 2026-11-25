@@ -1,21 +1,17 @@
-/**
- * @jest-environment jsdom
- */
-
 import moment from 'moment';
-import { getSettings, resetSettings, updateSettings } from '../../../src/Config/Settings';
-import { Query } from '../../../src/Query/Query';
-import { TasksFile } from '../../../src/Scripting/TasksFile';
-import type { Statement } from '../../../src/Query/Statement';
-import { type PresetsMap, defaultPresets } from '../../../src/Query/Presets/Presets';
-import { EnableJsInTasksQueries } from '../../../src/Config/EnableJsInTasksQueries';
+import { getSettings, resetSettings, updateSettings } from 'Config/Settings';
+import { Query } from 'Query/Query';
+import type { Statement } from 'Query/Statement';
+import { type PresetsMap, defaultPresets } from 'Query/Presets/Presets';
+import { EnableJsInTasksQueries } from 'Config/EnableJsInTasksQueries';
 import { expectQueryErrorToMentionDisabledJavaScript } from '../../Scripting/ScriptingTestHelpers';
+import { createTestTasksFile } from '../../TestingTools/TasksFileHelpers';
 
 window.moment = moment;
 
 beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2025-04-28'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-04-28'));
 });
 
 afterEach(() => {
@@ -26,7 +22,7 @@ export function makeIncludes(...entries: [string, string][]): PresetsMap {
     return Object.fromEntries(entries);
 }
 
-const tasksFile = new TasksFile('root/folder/stuff.md');
+const tasksFile = createTestTasksFile('root/folder/stuff.md');
 
 function createQuery(source: string, includes: PresetsMap) {
     updateSettings({ presets: includes });
@@ -63,7 +59,8 @@ describe('include tests', () => {
             expectFiltersToBe(query, ['not done']);
             expect(query.explainQuery()).toMatchInlineSnapshot(`
                 "{{preset.not_done}} =>
-                not done
+                not done =>
+                  status type is TODO or IN_PROGRESS or ON_HOLD
                 "
             `);
         });
@@ -74,7 +71,8 @@ describe('include tests', () => {
             expectFiltersToBe(query, ['not done']);
             expect(query.explainQuery()).toMatchInlineSnapshot(`
                 "preset not_done =>
-                not done
+                not done =>
+                  status type is TODO or IN_PROGRESS or ON_HOLD
                 "
             `);
         });
@@ -88,7 +86,8 @@ describe('include tests', () => {
                 not_done
                  =>
                 preset not_done =>
-                not done
+                not done =>
+                  status type is TODO or IN_PROGRESS or ON_HOLD
                 "
             `);
         });
@@ -297,7 +296,8 @@ return "Hello World";`;
                 "( {{preset.filter1}} ) AND ( {{preset.filter2}} ) =>
                 ( not done ) AND ( due 2025-05-01 ) =>
                   AND (All of):
-                    not done
+                    not done =>
+                      status type is TODO or IN_PROGRESS or ON_HOLD
                     due 2025-05-01 =>
                       due date is on 2025-05-01 (Thursday 1st May 2025)
                 "
@@ -357,7 +357,8 @@ describe('include - explain output', () => {
                       start date is before 2025-04-28 (Monday 28th April 2025) OR no start date
 
                 {{preset.out}}: statement 2 after expansion of placeholder =>
-                not done
+                not done =>
+                  status type is TODO or IN_PROGRESS or ON_HOLD
                 "
             `);
         });
@@ -378,7 +379,8 @@ describe('include - explain output', () => {
                       start date is before 2025-04-28 (Monday 28th April 2025) OR no start date
 
                 preset out =>
-                not done
+                not done =>
+                  status type is TODO or IN_PROGRESS or ON_HOLD
                 "
             `);
         });
@@ -451,6 +453,16 @@ describe('include - error messages', () => {
                   include3            : (filename includes File 1) AND ( (heading includes...
                   include4_longer_name: (filename includes File 1) AND \\...
                 Problem line: "preset not_existent""
+            `);
+        });
+
+        it('should list candidate preset names if there is a case-insensitive partial match', () => {
+            const query = createQuery('preset name', includes);
+            expect(query.error).toMatchInlineSnapshot(`
+                "Cannot find preset "name" in the Tasks settings
+                Did you mean:
+                  include4_longer_name: (filename includes File 1) AND \\...
+                Problem line: "preset name""
             `);
         });
     });
@@ -550,11 +562,12 @@ describe('include settings tests', () => {
             hide recurrence rule
             hide on completion
             hide priority",
-              "hide_query_elements": "# Hide toolbar, postpone, edit and backlinks
+              "hide_query_elements": "# Hide toolbar, postpone, edit, backlinks and task count
             hide toolbar
             hide postpone button
             hide edit button
-            hide backlinks",
+            hide backlinks
+            hide task count",
               "this_file": "path includes {{query.file.path}}",
               "this_folder": "folder includes {{query.file.folder}}",
               "this_folder_only": "filter by function task.file.folder === query.file.folder",
@@ -567,7 +580,7 @@ describe('include settings tests', () => {
         expect(name).toBeDefined();
         expect(instructions).toBeDefined();
 
-        const query = new Query(instructions, new TasksFile('anywhere.md'));
+        const query = new Query(instructions, createTestTasksFile('anywhere.md'));
         expect(query.error).toBeUndefined();
     });
 });

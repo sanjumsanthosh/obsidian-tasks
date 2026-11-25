@@ -1,14 +1,15 @@
-import { GlobalFilter } from '../Config/GlobalFilter';
-import { GlobalQuery } from '../Config/GlobalQuery';
-import type { IQuery } from '../IQuery';
-import { State } from '../Obsidian/Cache';
-import type { GroupDisplayHeading } from '../Query/Group/GroupDisplayHeading';
-import type { TaskGroups } from '../Query/Group/TaskGroups';
-import { explainResults } from '../Query/QueryRendererHelper';
-import type { QueryResult } from '../Query/QueryResult';
-import type { TasksFile } from '../Scripting/TasksFile';
-import type { ListItem } from '../Task/ListItem';
-import { Task } from '../Task/Task';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { GlobalQuery } from 'Config/GlobalQuery';
+import type { IQuery } from 'IQuery';
+import { State } from 'Obsidian/Cache';
+import type { GroupDisplayHeading } from 'Query/Group/GroupDisplayHeading';
+import type { TaskGroups } from 'Query/Group/TaskGroups';
+import { explainResults } from 'Query/QueryRendererHelper';
+import type { QueryResult } from 'Query/QueryResult';
+import type { TasksFile } from 'Scripting/TasksFile';
+import type { ListItem } from 'Task/ListItem';
+import { Task } from 'Task/Task';
+import type { TaskGroup } from 'Query/Group/TaskGroup';
 
 export abstract class QueryResultsRendererBase {
     private readonly source: string;
@@ -16,6 +17,12 @@ export abstract class QueryResultsRendererBase {
     protected readonly query: IQuery;
 
     protected readonly addedListItems: Set<ListItem> = new Set<ListItem>();
+
+    /**
+     * The current depth in the rendered task tree: 0 for top-level (outermost) tasks,
+     * and 1 or more for tasks rendered recursively as children. See {@link addChildren}.
+     */
+    protected nestingLevel = 0;
 
     protected constructor(source: string, tasksFile: TasksFile, query: IQuery) {
         this.source = source;
@@ -35,6 +42,7 @@ export abstract class QueryResultsRendererBase {
         // notes with tasks code blocks in Reading or Live Preview mode.
         const query = this.query;
         const error = query.error;
+
         if (state === State.Warm && error === undefined) {
             await this.renderQuerySearchResults(queryResult);
         } else if (error) {
@@ -97,13 +105,13 @@ export abstract class QueryResultsRendererBase {
 
     protected abstract renderExplanation(explanation: string | null): void;
 
-    private async addAllTaskGroups(tasksSortedLimitedGrouped: TaskGroups) {
+    protected async addAllTaskGroups(tasksSortedLimitedGrouped: TaskGroups) {
         for (const group of tasksSortedLimitedGrouped.groups) {
-            // If there were no 'group by' instructions, group.groupHeadings
-            // will be empty, and no headings will be added.
-            await this.addGroupHeadings(group.groupHeadings);
+            // If there were no 'group by' instructions, no headings will be added.
+            await this.addGroupHeadings(group);
 
             this.addedListItems.clear();
+            this.nestingLevel = 0;
             await this.addTaskList(group.tasks);
         }
     }
@@ -215,21 +223,41 @@ export abstract class QueryResultsRendererBase {
 
     private async addChildren(children: ListItem[]) {
         if (children.length > 0) {
-            await this.addTaskList(children);
+            this.nestingLevel += 1;
+            try {
+                await this.addTaskList(children);
+            } finally {
+                this.nestingLevel -= 1;
+            }
         }
     }
 
     /**
      * Display headings for a group of tasks.
-     * @param groupHeadings - The headings to display. This can be an empty array,
-     *                        in which case no headings will be added.
+     * @param group - The group whose headings are being displayed. The group may be empty,
+     *                in which case no headings will be added.
      * @private
      */
-    private async addGroupHeadings(groupHeadings: GroupDisplayHeading[]) {
-        for (const heading of groupHeadings) {
-            await this.addGroupHeading(heading);
+    protected async addGroupHeadings(group: TaskGroup) {
+        const lastHeadingIndex = group.groupHeadings.length - 1;
+
+        for (const [index, heading] of group.groupHeadings.entries()) {
+            const groupTaskCountSuffix = this.groupTaskCountSuffix(group, index, lastHeadingIndex);
+            await this.addGroupHeading(heading, groupTaskCountSuffix);
         }
     }
 
-    protected abstract addGroupHeading(group: GroupDisplayHeading): Promise<void>;
+    private groupTaskCountSuffix(group: TaskGroup, headingIndex: number, lastHeadingIndex: number): string {
+        if (this.query.queryLayoutOptions.hideGroupCount) {
+            return '';
+        }
+
+        if (headingIndex !== lastHeadingIndex) {
+            return '';
+        }
+
+        return `(${group.describeTaskCount()})`;
+    }
+
+    protected abstract addGroupHeading(group: GroupDisplayHeading, groupTaskCountText: string): Promise<void>;
 }

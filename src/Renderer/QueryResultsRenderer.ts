@@ -1,18 +1,18 @@
 import { type App, type Component, Notice, debounce, setIcon, setTooltip } from 'obsidian';
-import { GlobalQuery } from '../Config/GlobalQuery';
-import type { IQuery } from '../IQuery';
-import { PerformanceTracker } from '../lib/PerformanceTracker';
-import { State } from '../Obsidian/Cache';
-import { DescriptionField } from '../Query/Filter/DescriptionField';
-import { Query } from '../Query/Query';
-import { getQueryForQueryRenderer } from '../Query/QueryRendererHelper';
-import type { QueryResult } from '../Query/QueryResult';
-import type { TasksFile } from '../Scripting/TasksFile';
-import type { Task } from '../Task/Task';
-import { type HTMLQueryRendererParameters, HtmlQueryResultsRenderer } from './HtmlQueryResultsRenderer';
-import { MarkdownQueryResultsRenderer } from './MarkdownQueryResultsRenderer';
-import { type TextRenderer, createAndAppendElement } from './TaskLineRenderer';
-import { Settings } from 'Config/Settings';
+import { GlobalQuery } from 'Config/GlobalQuery';
+import type { IQuery } from 'IQuery';
+import { PerformanceTracker } from 'lib/PerformanceTracker';
+import { State } from 'Obsidian/Cache';
+import { DescriptionField } from 'Query/Filter/DescriptionField';
+import { Query } from 'Query/Query';
+import { getQueryForQueryRenderer } from 'Query/QueryRendererHelper';
+import type { QueryResult } from 'Query/QueryResult';
+import type { TasksFile } from 'Scripting/TasksFile';
+import type { Task } from 'Task/Task';
+import { HtmlColumnQueryResultsRenderer } from 'Renderer/HtmlColumnQueryResultsRenderer';
+import { type HTMLQueryRendererParameters, HtmlQueryResultsRenderer } from 'Renderer/HtmlQueryResultsRenderer';
+import { MarkdownQueryResultsRenderer } from 'Renderer/MarkdownQueryResultsRenderer';
+import type { TextRenderer } from 'Renderer/TaskLineRenderer';
 
 export type BacklinksEventHandler = (ev: MouseEvent, task: Task) => Promise<void>;
 export type EditButtonClickHandler = (event: MouseEvent, task: Task, allTasks: Task[]) => void;
@@ -55,7 +55,6 @@ export class QueryResultsRenderer {
         component: Component,
     ) => Promise<void>;
     private readonly obsidianComponent: Component | null;
-    private readonly settings: Settings;
     private readonly obsidianApp: App;
     private readonly textRenderer: TextRenderer;
     private readonly htmlQueryRendererParameters: HTMLQueryRendererParameters;
@@ -71,7 +70,6 @@ export class QueryResultsRenderer {
             sourcePath: string,
             component: Component,
         ) => Promise<void>,
-        settings: Settings,
         obsidianComponent: Component | null,
         obsidianApp: App,
         textRenderer: TextRenderer,
@@ -79,7 +77,6 @@ export class QueryResultsRenderer {
     ) {
         this.source = source;
         this._tasksFile = tasksFile;
-        this.settings = settings;
 
         // Store empty query result for now
         this.queryResult = new Query('').applyQueryToTasks([]);
@@ -164,17 +161,28 @@ export class QueryResultsRenderer {
         const measureRender = new PerformanceTracker(`Render: ${this.query.queryId} - ${this.filePath}`);
         measureRender.start();
 
-        const htmlRenderer = new HtmlQueryResultsRenderer(
-            this.renderMarkdown,
-            this.obsidianComponent,
-            this.obsidianApp,
-            this.textRenderer,
-            this.htmlQueryRendererParameters,
-            this.source,
-            this.tasksFile,
-            this.query,
-        );
-
+        const htmlRenderer =
+            this.query.viewLayoutOptions.viewMode === 'columns'
+                ? new HtmlColumnQueryResultsRenderer(
+                      this.renderMarkdown,
+                      this.obsidianComponent,
+                      this.obsidianApp,
+                      this.textRenderer,
+                      this.htmlQueryRendererParameters,
+                      this.source,
+                      this.tasksFile,
+                      this.query,
+                  )
+                : new HtmlQueryResultsRenderer(
+                      this.renderMarkdown,
+                      this.obsidianComponent,
+                      this.obsidianApp,
+                      this.textRenderer,
+                      this.htmlQueryRendererParameters,
+                      this.source,
+                      this.tasksFile,
+                      this.query,
+                  );
         htmlRenderer.content = content;
         await htmlRenderer.renderQuery(state, queryResult);
         measureRender.finish();
@@ -185,16 +193,16 @@ export class QueryResultsRenderer {
             return;
         }
 
-        const toolbar = createAndAppendElement('div', content);
+        const toolbar = content.createDiv();
         toolbar.classList.add('plugin-tasks-toolbar');
         this.addSearchBox(toolbar, content);
         this.addCopyButton(toolbar);
     }
 
     private addSearchBox(toolbar: HTMLDivElement, content: HTMLDivElement) {
-        const label = createAndAppendElement('label', toolbar);
+        const label = toolbar.createEl('label');
         setIcon(label, 'lucide-filter');
-        const searchBox = createAndAppendElement('input', label);
+        const searchBox = label.createEl('input');
         searchBox.value = this._filterString;
         searchBox.placeholder = 'Filter by description...';
         setTooltip(searchBox, 'Filter results');
@@ -226,6 +234,14 @@ export class QueryResultsRenderer {
     }
 
     private filterResults() {
+        if (this._filterString === '') {
+            // As well as for efficiency, this early-return ensures the
+            // correct group counts can be displayed on headings,
+            // at least when the toolbar filter is empty.
+            this.filteredQueryResult = this.queryResult;
+            return;
+        }
+
         const { filter, error } = new DescriptionField().createFilterOrErrorMessage(
             'description includes ' + this._filterString,
         );
@@ -238,9 +254,8 @@ export class QueryResultsRenderer {
         this.filteredQueryResult = this.queryResult.applyFilter(filter!);
     }
 
-
     private addCopyButton(toolbar: HTMLDivElement) {
-        const copyButton = createAndAppendElement('button', toolbar);
+        const copyButton = toolbar.createEl('button');
         setIcon(copyButton, 'lucide-copy');
         setTooltip(copyButton, 'Copy results');
         copyButton.addEventListener('click', async () => {

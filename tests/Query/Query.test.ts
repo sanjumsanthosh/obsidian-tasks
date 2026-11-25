@@ -1,28 +1,25 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
-import { Query } from '../../src/Query/Query';
-import { TasksFile } from '../../src/Scripting/TasksFile';
-import { Status } from '../../src/Statuses/Status';
-import { Task } from '../../src/Task/Task';
-import { OnCompletion } from '../../src/Task/OnCompletion';
-import { TaskLocation } from '../../src/Task/TaskLocation';
-import { fieldCreators } from '../../src/Query/FilterParser';
-import type { Field } from '../../src/Query/Filter/Field';
-import type { BooleanField } from '../../src/Query/Filter/BooleanField';
-import { SearchInfo } from '../../src/Query/SearchInfo';
-import { FilterOrErrorMessage } from '../../src/Query/Filter/FilterOrErrorMessage';
-import { Explanation } from '../../src/Query/Explain/Explanation';
-import { Filter } from '../../src/Query/Filter/Filter';
-import { DescriptionField } from '../../src/Query/Filter/DescriptionField';
+import { Query } from 'Query/Query';
+import { Status } from 'Statuses/Status';
+import { Task } from 'Task/Task';
+import { OnCompletion } from 'Task/OnCompletion';
+import { TaskLocation } from 'Task/TaskLocation';
+import { fieldCreators } from 'Query/FilterParser';
+import type { Field } from 'Query/Filter/Field';
+import type { BooleanField } from 'Query/Filter/BooleanField';
+import { SearchInfo } from 'Query/SearchInfo';
+import { FilterOrErrorMessage } from 'Query/Filter/FilterOrErrorMessage';
+import { Explanation } from 'Query/Explain/Explanation';
+import { Filter } from 'Query/Filter/Filter';
+import { DescriptionField } from 'Query/Filter/DescriptionField';
+import { Priority } from 'Task/Priority';
+import { TaskLayoutComponent } from 'Layout/TaskLayoutOptions';
 import { createTasksFromMarkdown, fromLine } from '../TestingTools/TestHelpers';
 import type { FilteringCase } from '../TestingTools/FilterTestHelpers';
 import { shouldSupportFiltering } from '../TestingTools/FilterTestHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
-import { Priority } from '../../src/Task/Priority';
-import { TaskLayoutComponent } from '../../src/Layout/TaskLayoutOptions';
 import { getTasksFileFromMockData } from '../TestingTools/MockDataHelpers';
+import { createTestTasksFile } from '../TestingTools/TasksFileHelpers';
 
 window.moment = moment;
 
@@ -44,7 +41,7 @@ function sortInstructionLines(filters: ReadonlyArray<string>) {
 
 function isValidQueryFilter(filter: string) {
     // Arrange
-    const query = new Query(filter, new TasksFile('anywhere.md'));
+    const query = new Query(filter, createTestTasksFile('anywhere.md'));
 
     // Assert
     expect(query.error).toBeUndefined();
@@ -113,7 +110,7 @@ description includes Simple Line
 description includes \
     from a Continuation Line
         `;
-        const query = new Query(source, new TasksFile('test.md'));
+        const query = new Query(source, createTestTasksFile('test.md'));
         expect(query.error).toBeUndefined();
         const statements = query.statements;
         expect(statements.length).toEqual(3);
@@ -392,11 +389,12 @@ description includes \
             return filters.filter((instruction) => field.createSorterFromLine(instruction) !== null);
         }
 
-        describe.each(namedFields)('has sufficient sample "sort by" lines for field "%s"', ({ field }) => {
-            if (!field.supportsSorting()) {
-                return;
-            }
-
+        describe.each(
+            namedFields.filter((namedField) => {
+                // Braces are intentional to make it clear that a subset of namedFields is being used.
+                return namedField.field.supportsSorting();
+            }),
+        )('has sufficient sample "sort by" lines for field "%s"', ({ field }) => {
             const matchingLines = linesMatchingField(field);
 
             it('has at least one test for normal sorting', () => {
@@ -474,11 +472,12 @@ description includes \
             return filters.filter((instruction) => field.createGrouperFromLine(instruction) !== null);
         }
 
-        describe.each(namedFields)('has sufficient sample "group by" lines for field "%s"', ({ field }) => {
-            if (!field.supportsGrouping()) {
-                return;
-            }
-
+        describe.each(
+            namedFields.filter((namedField) => {
+                // Braces are intentional to make it clear that a subset of namedFields is being used.
+                return namedField.field.supportsGrouping();
+            }),
+        )('has sufficient sample "group by" lines for field "%s"', ({ field }) => {
             const matchingLines = linesMatchingField(field);
 
             it('has at least one test for normal grouping', () => {
@@ -506,7 +505,10 @@ description includes \
             'hide done date',
             'hide due date',
             'hide edit button',
+            'hide group count',
             'hide id',
+            'hide nested backlink',
+            'hide nested backlinks',
             'hide on completion',
             'hide priority',
             'hide recurrence rule',
@@ -532,7 +534,10 @@ description includes \
             'show done date',
             'show due date',
             'show edit button',
+            'show group count',
             'show id',
+            'show nested backlink',
+            'show nested backlinks',
             'show on completion',
             'show priority',
             'show recurrence rule',
@@ -543,6 +548,9 @@ description includes \
             'show toolbar',
             'show tree',
             'show urgency',
+            'view columns by function task.status.symbol',
+            'view columns by priority',
+            'view list',
         ];
         test.concurrent.each<string>(filters)('recognises %j', (filter) => {
             // Arrange
@@ -627,7 +635,7 @@ description includes \
 
     describe('should include instruction in parsing error messages', () => {
         function getQueryError(source: string) {
-            return new Query(source, new TasksFile('Example Path.md')).error;
+            return new Query(source, createTestTasksFile('Example Path.md')).error;
         }
 
         it('for invalid regular expression filter', () => {
@@ -661,6 +669,9 @@ to find them literally, you must add a \ before them:
 CAUTION! Regular expression (or 'regex') searching is a powerful
 but advanced feature that requires thorough knowledge in order to
 use successfully, and not miss intended search results.
+
+Patterns with nested quantifiers (for example (a+)+) are rejected
+because they can cause extreme slowdowns (catastrophic backtracking).
 
 Problem line: "${source}"`,
             );
@@ -758,7 +769,7 @@ Problem statement:
         it('should expand placeholder values in filters, but not source', () => {
             // Arrange
             const rawQuery = 'path includes {{query.file.path}}';
-            const tasksFile = new TasksFile('a/b/path with space.md');
+            const tasksFile = createTestTasksFile('a/b/path with space.md');
 
             // Act
             const query = new Query(rawQuery, tasksFile);
@@ -789,7 +800,7 @@ Problem statement:
         it('should report error if non-existent placeholder used', () => {
             // Arrange
             const source = 'path includes {{query.file.noSuchProperty}}';
-            const tasksFile = new TasksFile('a/b/path with space.md');
+            const tasksFile = createTestTasksFile('a/b/path with space.md');
 
             // Act
             const query = new Query(source, tasksFile);
@@ -810,7 +821,7 @@ Problem statement:
         it('should not report error if comment contains a non-existent placeholder', () => {
             // Arrange
             const source = '  #  path includes {{query.file.noSuchProperty}}';
-            const tasksFile = new TasksFile('a/b/path with space.md');
+            const tasksFile = createTestTasksFile('a/b/path with space.md');
 
             // Act
             const query = new Query(source, tasksFile);
@@ -825,7 +836,7 @@ Problem statement:
             const source = `{{error 1}}
 {{error 2}}
 {{error 3}}`;
-            const tasksFile = new TasksFile('a/b/path with space.md');
+            const tasksFile = createTestTasksFile('a/b/path with space.md');
 
             // Act
             const query = new Query(source, tasksFile);
@@ -997,6 +1008,37 @@ filter by function \\
     });
 });
 
+/**
+ * Applies a query to a collection of tasks represented in Markdown format and verifies the results
+ * against a given expected output rendered in Markdown.
+ *
+ * It runs the search a second time, checking the query works when it's in all-capitals.
+ *
+ * @param tasksAsMarkdown - The tasks represented in Markdown format.
+ * @param source - The query string to apply to the tasks.
+ * @param expectedResultsAsMarkdown - The expected results, in Markdown format, to compare against.
+ */
+function searchTasksAndTestResultsAsMarkdown(
+    tasksAsMarkdown: string,
+    source: string,
+    expectedResultsAsMarkdown: string,
+) {
+    // Arrange
+    const sourceUpper = source.toUpperCase();
+    const query = new Query(source);
+    const queryUpper = new Query(sourceUpper);
+
+    const tasks = createTasksFromMarkdown(tasksAsMarkdown, 'some_markdown_file', 'Some Heading');
+
+    // Act
+    const queryResult = query.applyQueryToTasks(tasks);
+    const queryUpperResult = queryUpper.applyQueryToTasks(tasks);
+
+    // Assert
+    expect(queryResult.asMarkdown()).toEqual(expectedResultsAsMarkdown);
+    expect(queryUpperResult.asMarkdown()).toEqual(expectedResultsAsMarkdown);
+}
+
 describe('Query', () => {
     describe('filtering', () => {
         it('filters paths case insensitive', () => {
@@ -1005,7 +1047,7 @@ describe('Query', () => {
                 new Task({
                     status: Status.TODO,
                     description: 'description',
-                    taskLocation: TaskLocation.fromUnknownPosition(new TasksFile('Ab/C D')),
+                    taskLocation: TaskLocation.fromUnknownPosition(createTestTasksFile('Ab/C D')),
                     indentation: '',
                     listMarker: '-',
                     priority: Priority.None,
@@ -1027,7 +1069,7 @@ describe('Query', () => {
                 new Task({
                     status: Status.TODO,
                     description: 'description',
-                    taskLocation: TaskLocation.fromUnknownPosition(new TasksFile('FF/C D')),
+                    taskLocation: TaskLocation.fromUnknownPosition(createTestTasksFile('FF/C D')),
                     indentation: '',
                     listMarker: '-',
                     priority: Priority.None,
@@ -1494,7 +1536,7 @@ describe('Query', () => {
     describe('query path and metadata', function () {
         it('should provide access to the path of the query', () => {
             const path = 'query location.md';
-            const query = new Query('not done', new TasksFile(path));
+            const query = new Query('not done', createTestTasksFile(path));
 
             expect(query.filePath).toEqual(path);
         });
@@ -1529,7 +1571,7 @@ describe('Query', () => {
 
         it('should pass the query path through to filter functions', () => {
             // Arrange
-            const queryTasksFile = new TasksFile('this/was/passed/in/correctly.md');
+            const queryTasksFile = createTestTasksFile('this/was/passed/in/correctly.md');
             const query = new Query('', queryTasksFile);
 
             const matchesIfSearchInfoHasCorrectPath = (_task: Task, searchInfo: SearchInfo) => {
@@ -1563,6 +1605,51 @@ describe('Query', () => {
         it('should hide "tree" by default', () => {
             const query = new Query('');
             expect(query.queryLayoutOptions.hideTree).toEqual(true);
+        });
+    });
+
+    describe('view mode', () => {
+        it('should default to "list" view', () => {
+            const query = new Query('');
+            expect(query.viewLayoutOptions.viewMode).toEqual('list');
+        });
+
+        it('should reject columns view without a grouping expression', () => {
+            const query = new Query('view columns');
+
+            expect(query.viewLayoutOptions.viewMode).toEqual('list');
+            expect(query.viewLayoutOptions.grouper).toBeNull();
+            expect(query.error).toEqual(`columns view requires a grouping expression
+
+For example:
+    view columns by priority
+    view columns by root
+    view columns by status.type reverse
+Problem line: "view columns"`);
+        });
+
+        it('should allow columns view to be grouped by priority', () => {
+            const query = new Query('view columns by priority');
+
+            expect(query.error).toBeUndefined();
+            expect(query.viewLayoutOptions.viewMode).toEqual('columns');
+            expect(query.viewLayoutOptions.grouper).not.toBeNull();
+            expect(query.viewLayoutOptions.grouper?.property).toEqual('priority');
+            expect(query.grouping).toHaveLength(0);
+        });
+
+        it('should give a meaningful error message for unknown view mode', () => {
+            const query = new Query('view nonsense');
+            expect(query.viewLayoutOptions.viewMode).toEqual('list');
+            expect(query.error).toEqual(`do not understand view mode "nonsense"
+
+The available view modes are:
+    list
+    columns
+
+For example:
+    view list
+Problem line: "view nonsense"`);
         });
     });
 
@@ -1642,7 +1729,7 @@ describe('Query', () => {
             const source = 'group by function query.file.path';
             const sourceUpper = 'GROUP BY FUNCTION query.file.path';
 
-            const tasksFile = new TasksFile('hello.md');
+            const tasksFile = createTestTasksFile('hello.md');
             const query = new Query(source, tasksFile);
             const queryUpper = new Query(sourceUpper, tasksFile);
 
@@ -1799,6 +1886,57 @@ describe('Query', () => {
         });
     });
 
+    describe('grouping instructions in conjunction with columns view', () => {
+        const tasksAsMarkdown = `
+- [ ] Task 1 - Todo - high priority ⏫
+- [x] Task 2 - Done   priority 🔽
+            `;
+
+        it('should apply the "view columns" grouper automatically', () => {
+            const source = `
+                view columns by priority
+                `;
+
+            // In column view, the view's grouper ('by priority', here) is injected as
+            // the first (ond only) grouper in the search.
+            const expectedResultsAsMarkdown = `
+#### %%1%%High priority
+
+- [ ] Task 1 - Todo - high priority ⏫
+
+#### %%4%%Low priority
+
+- [x] Task 2 - Done   priority 🔽
+`;
+            searchTasksAndTestResultsAsMarkdown(tasksAsMarkdown, source, expectedResultsAsMarkdown);
+        });
+
+        it('should prepend the "view columns" grouper to any user-supplied groups', () => {
+            // Arrange
+            const source = `
+                view columns by status.name
+                group by priority
+                `;
+
+            // In column view, the view's grouper ('by priority', here) is injected before
+            // all the user-supplied groups.
+            const expectedResultsAsMarkdown = `
+#### Done
+
+##### %%4%%Low priority
+
+- [x] Task 2 - Done   priority 🔽
+
+#### Todo
+
+##### %%1%%High priority
+
+- [ ] Task 1 - Todo - high priority ⏫
+`;
+            searchTasksAndTestResultsAsMarkdown(tasksAsMarkdown, source, expectedResultsAsMarkdown);
+        });
+    });
+
     describe('error handling', () => {
         it('should catch an exception that occurs during searching', () => {
             // Arrange
@@ -1842,7 +1980,7 @@ Problem statement:
         it('should save the source correctly in a Statement object', () => {
             const source = String.raw`(path includes A) OR \
                 (path includes {{query.file.path}})`;
-            const query = new Query(source, new TasksFile('Test.md'));
+            const query = new Query(source, createTestTasksFile('Test.md'));
 
             expect(query.error).toBeUndefined();
             const filter = query.filters[0];

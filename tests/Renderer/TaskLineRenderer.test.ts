@@ -1,18 +1,15 @@
-/**
- * @jest-environment jsdom
- */
 import moment from 'moment';
 
-import { DebugSettings } from '../../src/Config/DebugSettings';
-import { GlobalFilter } from '../../src/Config/GlobalFilter';
-import { resetSettings, updateSettings } from '../../src/Config/Settings';
-import { QueryLayoutOptions } from '../../src/Layout/QueryLayoutOptions';
-import { TaskLayoutComponent, TaskLayoutOptions, taskLayoutComponents } from '../../src/Layout/TaskLayoutOptions';
-import { DateParser } from '../../src/DateTime/DateParser';
-import type { TextRenderer } from '../../src/Renderer/TaskLineRenderer';
-import { TaskLineRenderer, createAndAppendElement } from '../../src/Renderer/TaskLineRenderer';
-import type { Task } from '../../src/Task/Task';
-import { TaskRegularExpressions } from '../../src/Task/TaskRegularExpressions';
+import { DebugSettings } from 'Config/DebugSettings';
+import { GlobalFilter } from 'Config/GlobalFilter';
+import { resetSettings, updateSettings } from 'Config/Settings';
+import { QueryLayoutOptions } from 'Layout/QueryLayoutOptions';
+import { TaskLayoutComponent, TaskLayoutOptions, taskLayoutComponents } from 'Layout/TaskLayoutOptions';
+import { DateParser } from 'DateTime/DateParser';
+import type { TextRenderer } from 'Renderer/TaskLineRenderer';
+import { TaskLineRenderer, reconcileReplacementTask } from 'Renderer/TaskLineRenderer';
+import type { Task } from 'Task/Task';
+import { TaskRegularExpressions } from 'Task/TaskRegularExpressions';
 import { verifyWithFileExtension } from '../TestingTools/ApprovalTestHelpers';
 import { prettifyHTML } from '../TestingTools/HTMLHelpers';
 import { TaskBuilder } from '../TestingTools/TaskBuilder';
@@ -20,7 +17,6 @@ import { fromLine } from '../TestingTools/TestHelpers';
 import { mockApp } from '../__mocks__/obsidian';
 import { mockHTMLRenderer, mockTextRenderer } from './RenderingTestHelpers';
 
-jest.mock('obsidian');
 window.moment = moment;
 
 /**
@@ -48,7 +44,7 @@ async function renderListItem(
         queryLayoutOptions: queryLayoutOptions ?? new QueryLayoutOptions(),
     });
     const divElement = document.createElement('div');
-    const li = createAndAppendElement('li', divElement);
+    const li = divElement.createEl('li');
     await taskLineRenderer.renderTaskLine({
         li: li,
         task: task,
@@ -402,6 +398,7 @@ describe('task line rendering - classes and data attributes', () => {
     });
 
     it.each([
+        // NEW_TASK_FIELD_EDIT_REQUIRED
         ['task-priority', 'taskPriority: medium', 'priority'],
         ['task-createdDate', 'taskCreated: past-far', 'createdDate'],
         ['task-dueDate', 'taskDue: past-far', 'dueDate'],
@@ -505,12 +502,12 @@ describe('task line rendering - classes and data attributes', () => {
 
 describe('Visualise HTML', () => {
     beforeAll(() => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2023-07-05'));
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2023-07-05'));
     });
 
     afterAll(() => {
-        jest.useRealTimers();
+        vi.useRealTimers();
     });
 
     async function renderAndVerifyHTML(
@@ -528,7 +525,7 @@ describe('Visualise HTML', () => {
         const taskAsMarkdown = `<!--
 ${task.toFileLineString()}
 -->\n\n`;
-        const prettyHTML = prettifyHTML(listItem.outerHTML);
+        const prettyHTML = await prettifyHTML(listItem.outerHTML);
 
         verifyWithFileExtension(taskAsMarkdown + prettyHTML, 'html');
     }
@@ -567,5 +564,99 @@ ${task.toFileLineString()}
 
     it('Minimal task - short mode', async () => {
         await renderAndVerifyHTML(minimalTask, layoutOptionsShortMode());
+    });
+});
+
+describe('task line rendering - preserving classes and data attributes', () => {
+    /*
+     * Create an original list item, along with a parent element,
+     * and a separate replacement list item.
+     * Note the plain li elements will only be used by tests that check
+     * persistence of pre-existing classes and attributes during the
+     * replacement
+     */
+    const originalAndReplacement = () => {
+        const list = document.createElement('ul');
+        const original = list.createEl('li');
+        const replacement = document.createElement('li');
+        return { original, replacement };
+    };
+
+    it('copies pre-existing classes from the original onto the replacement', () => {
+        const { original, replacement } = originalAndReplacement();
+        original.classList.add('test-plugin-class', 'another-plugin-class');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.classList.contains('test-plugin-class')).toBe(true);
+        expect(replacement.classList.contains('another-plugin-class')).toBe(true);
+    });
+
+    it('copies pre-existing data attributes from the original onto the replacement', () => {
+        const { original, replacement } = originalAndReplacement();
+        original.setAttribute('data-test-color', 'red');
+        original.setAttribute('data-custom', 'value');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.getAttribute('data-test-color')).toBe('red');
+        expect(replacement.getAttribute('data-custom')).toBe('value');
+    });
+
+    it('does not copy pre-existing non-data attributes from the original onto the replacement', () => {
+        const { original, replacement } = originalAndReplacement();
+        original.setAttribute('test-attr', 'value');
+        original.setAttribute('aria-label', 'a task');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.hasAttribute('test-attr')).toBe(false);
+        expect(replacement.hasAttribute('aria-label')).toBe(false);
+    });
+
+    /*
+     * Create an original list item, along with a parent element,
+     * and a fully rendered task list item, so it carries the classes
+     * and data attributes that Tasks itself adds
+     */
+    const originalAndRenderedReplacement = async (taskLine: string) => {
+        const replacement = await renderListItem(fromLine({ line: taskLine }));
+        const list = document.createElement('ul');
+        const original = list.createEl('li');
+        return { original, replacement };
+    };
+
+    it("should have the Tasks plugin's own classes after the replacement", async () => {
+        const { original, replacement } = await originalAndRenderedReplacement('- [x] A complete task');
+        original.classList.add('test-plugin-class');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.classList.contains('task-list-item')).toBe(true);
+        expect(replacement.classList.contains('is-checked')).toBe(true);
+        expect(replacement.classList.contains('plugin-tasks-list-item')).toBe(true);
+    });
+
+    it("should have the Tasks plugin's own data attributes after the replacement", async () => {
+        const { original, replacement } = await originalAndRenderedReplacement('- [x] A complete task');
+        original.setAttribute('data-custom', 'value');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.hasAttribute('data-task')).toBe(true);
+        expect(replacement.hasAttribute('data-line')).toBe(true);
+        expect(replacement.hasAttribute('data-task-status-name')).toBe(true);
+        expect(replacement.hasAttribute('data-task-status-type')).toBe(true);
+    });
+
+    it("should not overwrite the replacement's own data attributes with the original's", async () => {
+        const { original, replacement } = await originalAndRenderedReplacement('- [x] A complete task');
+        original.setAttribute('data-task', ' ');
+        original.setAttribute('data-line', '99');
+
+        reconcileReplacementTask(original, replacement);
+
+        expect(replacement.getAttribute('data-task')).toBe('x');
+        expect(replacement.getAttribute('data-line')).toBe('0');
     });
 });
